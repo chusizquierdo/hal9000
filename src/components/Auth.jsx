@@ -109,34 +109,35 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center relative overflow-hidden font-mono text-white p-6">
-      <div className="absolute top-20 w-32 h-32 rounded-full border-4 border-red-900 bg-red-950/20 shadow-[0_0_50px_rgba(220,38,38,0.5)] flex items-center justify-center">
-        <div className="w-16 h-16 rounded-full bg-red-600 shadow-[0_0_20px_white]" />
+    <div className="min-h-screen bg-black flex flex-col items-center justify-center relative overflow-hidden font-mono text-white p-4">
+      {/* Ojo de HAL - reducido en pantallas muy pequeñas */}
+      <div className="absolute top-10 md:top-20 w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-red-900 bg-red-950/20 shadow-[0_0_50px_rgba(220,38,38,0.5)] flex items-center justify-center">
+        <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-red-600 shadow-[0_0_20px_white]" />
       </div>
 
-      {/* Contenedor más ancho: max-w-3xl */}
-      <div className="z-10 w-full max-w-3xl p-12 bg-gray-950/80 backdrop-blur-md border border-gray-800 rounded-2xl shadow-2xl">
-        <h1 className="text-4xl font-black mb-10 text-center tracking-widest text-red-500 uppercase">HAL-9000</h1>
+      {/* Contenedor responsivo */}
+      <div className="z-10 w-full max-w-2xl md:max-w-3xl p-6 md:p-12 bg-gray-950/80 backdrop-blur-md border border-gray-800 rounded-2xl shadow-2xl mt-32 md:mt-0">
+        <h1 className="text-3xl md:text-4xl font-black mb-6 md:mb-10 text-center tracking-widest text-red-500 uppercase">HAL-9000</h1>
         
-        <form onSubmit={handleAuth} className="flex flex-col gap-6">
+        <form onSubmit={handleAuth} className="flex flex-col gap-4 md:gap-6">
           {isSignUp && (
-            <input type="text" placeholder="Usuario" className="w-full p-5 bg-gray-900 border border-gray-700 rounded-lg outline-none focus:border-red-500 text-lg" value={username} onChange={(e) => setUsername(e.target.value)} required />
+            <input type="text" placeholder="Usuario" className="w-full p-4 md:p-5 bg-gray-900 border border-gray-700 rounded-lg outline-none focus:border-red-500 text-lg" value={username} onChange={(e) => setUsername(e.target.value)} required />
           )}
-          <input type="email" placeholder="Correo electrónico" className="w-full p-5 bg-gray-900 border border-gray-700 rounded-lg outline-none focus:border-red-500 text-lg" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <input type="password" placeholder="Contraseña" className="w-full p-5 bg-gray-900 border border-gray-700 rounded-lg outline-none focus:border-red-500 text-lg" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <input type="email" placeholder="Correo electrónico" className="w-full p-4 md:p-5 bg-gray-900 border border-gray-700 rounded-lg outline-none focus:border-red-500 text-lg" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <input type="password" placeholder="Contraseña" className="w-full p-4 md:p-5 bg-gray-900 border border-gray-700 rounded-lg outline-none focus:border-red-500 text-lg" value={password} onChange={(e) => setPassword(e.target.value)} required />
           
-          <button disabled={loading} className="w-full bg-red-900 text-red-100 p-5 rounded-lg font-bold hover:bg-red-800 transition-all uppercase tracking-widest text-lg">
+          <button disabled={loading} className="w-full bg-red-900 text-red-100 p-4 md:p-5 rounded-lg font-bold hover:bg-red-800 transition-all uppercase tracking-widest text-lg">
             {loading ? 'Procesando...' : isSignUp ? 'Iniciar Inicialización' : 'Acceder al Sistema'}
           </button>
           
-          <button type="button" className="text-sm text-gray-500 hover:text-red-400 mt-4 text-center" onClick={() => setIsSignUp(!isSignUp)}>
+          <button type="button" className="text-sm text-gray-500 hover:text-red-400 mt-2 md:mt-4 text-center" onClick={() => setIsSignUp(!isSignUp)}>
             {isSignUp ? '¿Ya estás registrado? Inicia sesión' : '¿Nueva conexión? Regístrate'}
           </button>
         </form>
       </div> 
 
-      <div className="absolute bottom-10 w-full text-center px-6">
-        <p key={quote} className="text-gray-500 italic animate-fade-in transition-opacity duration-1000">"{quote}"</p>
+      <div className="absolute bottom-10 w-full text-center px-4 md:px-6">
+        <p key={quote} className="text-gray-500 italic text-sm md:text-base animate-fade-in transition-opacity duration-1000">"{quote}"</p>
       </div>
 
       <style jsx global>{`
