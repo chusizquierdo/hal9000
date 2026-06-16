@@ -43,7 +43,7 @@ export default function AdminPanel() {
                   Cambiar a {p.role === 'admin' ? 'User' : 'Admin'}
                 </button>
               </td>
-            </tr>
+            </tr> 
           ))}
         </tbody>
       </table>
