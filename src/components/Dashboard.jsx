@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient';
 
 export default function Dashboard({ onViewMovie }) {
   const [items, setItems] = useState([]);
-  const [sortBy, setSortBy] = useState('year');
+  const [sortBy, setSortBy] = useState('recent');
   const [filterType, setFilterType] = useState('all');
 
   useEffect(() => {
@@ -45,7 +45,13 @@ export default function Dashboard({ onViewMovie }) {
     .sort((a, b) => {
       if (sortBy === 'rating') return b.avg - a.avg;
       if (sortBy === 'title') return a.title.localeCompare(b.title);
-      if (sortBy === 'year') return a.year - b.year; 
+      if (sortBy === 'year_new') return b.year - a.year; // Más reciente primero
+      if (sortBy === 'year_old') return a.year - b.year; // Más antiguo primero
+      if (sortBy === 'recent') {
+        const dateA = a.firstReview ? new Date(a.firstReview.created_at) : new Date(0);
+        const dateB = b.firstReview ? new Date(b.firstReview.created_at) : new Date(0);
+        return dateB - dateA;
+      }
       return 0;
     });
 
@@ -60,7 +66,9 @@ export default function Dashboard({ onViewMovie }) {
             <option value="tv">Series</option>
           </select>
           <select className="bg-white border border-gray-200 text-gray-700 py-2 px-4 rounded-xl shadow-sm outline-none" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-            <option value="year">Por año</option>
+            <option value="recent">Última reseña</option>
+            <option value="year_new">Año (Más reciente)</option>
+            <option value="year_old">Año (Más antiguo)</option>
             <option value="rating">Mejor puntuación</option>
             <option value="title">Alfabético</option>
           </select>
@@ -69,17 +77,24 @@ export default function Dashboard({ onViewMovie }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredAndSortedItems.map(m => (
-          <div key={m.id} className="group bg-white rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-300 border border-gray-100 cursor-pointer" onClick={() => onViewMovie(m.id)}>
-            <div className="relative h-72">
-              <img src={m.poster_url} alt={m.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+          <div key={m.id} className="group bg-white rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-300 border border-gray-100 cursor-pointer flex flex-col" onClick={() => onViewMovie(m.id)}>
+            <div className="relative h-64">
+              <img src={m.poster_url} alt={m.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 rounded-t-2xl" />
               <div className="absolute top-3 left-3">
                 <span className="bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase">{m.media_type === 'tv' ? 'Serie' : 'Película'}</span>
               </div>
             </div>
-            <div className="p-5">
+            <div className="p-5 flex-grow">
               <h2 className="font-bold text-gray-900 text-lg truncate">{m.title}</h2>
               <p className="text-gray-500 text-sm mb-3">{m.year > 0 ? m.year : 'N/A'}</p>
-              <div className="flex items-center gap-1 font-bold text-yellow-500">
+              
+              {m.firstReview && (
+                <p className="text-xs text-gray-400 italic mb-4 line-clamp-2 border-t pt-3">
+                  "{m.firstReview.comment}"
+                </p>
+              )}
+
+              <div className="flex items-center gap-1 font-bold text-yellow-500 mt-auto">
                 ★ <span className="text-gray-900">{m.avg > 0 ? m.avg.toFixed(1) : '0.0'}</span>
               </div>
             </div>
