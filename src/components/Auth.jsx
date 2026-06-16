@@ -111,13 +111,13 @@ export default function Auth() {
   return (
     <div className="h-screen w-screen bg-black grid grid-rows-[1fr_auto_auto] items-center justify-items-center p-4 font-mono text-white overflow-hidden">
       
-      {/* 1. Ojo de HAL (Fila superior) */}
+      {/* 1. Ojo de HAL */}
       <div className="w-32 h-32 rounded-full border-4 border-red-900 bg-red-950/20 shadow-[0_0_50px_rgba(220,38,38,0.5)] flex items-center justify-center shrink-0">
         <div className="w-16 h-16 rounded-full bg-red-600 shadow-[0_0_20px_white]" />
       </div>
 
-      {/* 2. Formulario (Fila central - tamaño bloqueado) */}
-      <div className="w-[600px] h-[450px] p-12 bg-gray-950/80 backdrop-blur-md border border-gray-800 rounded-2xl shadow-2xl flex flex-col justify-center shrink-0">
+      {/* 2. Formulario */}
+      <div className="w-[600px] h-[480px] p-12 bg-gray-950/80 backdrop-blur-md border border-gray-800 rounded-2xl shadow-2xl flex flex-col justify-center shrink-0">
         <h1 className="text-4xl font-black mb-10 text-center tracking-widest text-red-500 uppercase">HAL-9000</h1>
         
         <form onSubmit={handleAuth} className="flex flex-col gap-6">
@@ -130,10 +130,15 @@ export default function Auth() {
           <button disabled={loading} className="w-full bg-red-900 text-red-100 p-4 rounded-lg font-bold hover:bg-red-800 transition-all uppercase tracking-widest">
             {loading ? 'Procesando...' : isSignUp ? 'Iniciar Inicialización' : 'Acceder al Sistema'}
           </button>
+          
+          {/* Botón de cambio recuperado */}
+          <button type="button" className="text-sm text-gray-500 hover:text-red-400 text-center" onClick={() => setIsSignUp(!isSignUp)}>
+            {isSignUp ? '¿Ya estás registrado? Inicia sesión' : '¿Nueva conexión? Regístrate'}
+          </button>
         </form>
       </div> 
 
-      {/* 3. Frase (Fila inferior - altura bloqueada) */}
+      {/* 3. Frase */}
       <div className="h-20 flex items-center justify-center px-4 shrink-0">
         <p key={quote} className="text-gray-500 italic text-sm text-center animate-fade-in transition-opacity duration-1000 line-clamp-2">
           "{quote}"
