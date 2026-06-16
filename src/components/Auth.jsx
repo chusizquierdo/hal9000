@@ -133,7 +133,7 @@ export default function Auth() {
             {isSignUp ? '¿Ya estás registrado? Inicia sesión' : '¿Nueva conexión? Regístrate'}
           </button>
         </form>
-      </div>
+      </div> 
 
       <div className="absolute bottom-10 w-full text-center px-6">
         <p key={quote} className="text-gray-500 italic animate-fade-in transition-opacity duration-1000">"{quote}"</p>
