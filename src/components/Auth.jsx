@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient';
 
 const CINEMA_QUOTES = [
   "Francamente, querida, eso me importa un bledo. (Lo que el viento se llevó)",
-  "Le haré una oferta que no podrá rechazar. (El Padrino)",
+  "Le haré una oferta que no podrá rezar. (El Padrino)",
   "No tienes ni idea de lo que me pasa. (La ley del silencio)",
   "Toto, tengo el presentimiento de que ya no estamos en Kansas. (El mago de Oz)",
   "Aquí me tienes mirándote, chica. (Casablanca)",
@@ -58,7 +58,7 @@ const CINEMA_QUOTES = [
   "Creo que este es el comienzo de una gran amistad. (Casablanca)",
   "Solo tienes que silbar. (Tener y no tener)",
   "¡Abrid la puerta! (El resplandor)",
-  "La belleza mató a la bestia. (King Kong)",
+  "La beauty mató a la bestia. (King Kong)",
   "El amor significa nunca tener que pedir perdón. (Love Story)",
   "Lo siento, Dave. (2001: Una odisea del espacio)",
   "¡Eso es, eso es todo, amigos! (Looney Tunes)",
@@ -108,8 +108,9 @@ export default function Auth() {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setMessage(error.message);
     } else if (view === 'forgot') {
+      // CORRECCIÓN: Redirigimos a la raíz exacta del proyecto para evitar errores 404 en Vercel
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/update-password`,
+        redirectTo: `${window.location.origin}`,
       });
       if (error) setMessage(error.message);
       else setMessage('Se ha enviado un enlace de recuperación a tu correo electrónico.');
