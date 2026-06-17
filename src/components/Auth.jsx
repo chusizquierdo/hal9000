@@ -146,7 +146,7 @@ export default function Auth() {
       </div> 
 
       <div className="h-20 flex items-center justify-center px-4 shrink-0 mt-4 md:mt-0">
-        <p key={quote} className="text-gray-500 italic text-xs md:text-sm text-center animate-fade-in transition-opacity duration-1000 line-clamp-2">
+        <p key={quote} className="text-gray-400 italic text-sm md:text-lg text-center animate-fade-in transition-opacity duration-1000 line-clamp-2 px-2">
           "{quote}"
         </p>
       </div>
