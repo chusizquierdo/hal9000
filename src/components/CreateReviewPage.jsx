@@ -8,12 +8,10 @@ export default function CreateReviewPage({ onReviewCreated }) {
   const [rating, setRating] = useState(0); 
   const [loading, setLoading] = useState(false);
   
-  // Nuevos estados para la gestión de pendientes desde el buscador
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [watchlistId, setWatchlistId] = useState(null);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
 
-  // Cada vez que el usuario elija un título diferente en el buscador, comprobamos su estado
   useEffect(() => {
     if (selectedMedia) {
       checkWatchlist();
@@ -51,7 +49,6 @@ export default function CreateReviewPage({ onReviewCreated }) {
     const mediaIdStr = String(selectedMedia.id);
 
     if (isInWatchlist) {
-      // Si ya está guardada, la quitamos
       const { error } = await supabase
         .from('watchlist')
         .delete()
@@ -64,32 +61,30 @@ export default function CreateReviewPage({ onReviewCreated }) {
         alert("Error al quitar de pendientes: " + error.message);
       }
     } else {
-      // Si no está guardada, primero aseguramos que la película exista en media_items
-      // para evitar que salte el error de clave foránea de la base de datos
       const mediaType = selectedMedia.media_type === 'tv' ? 'tv' : 'movie';
       const mediaTitle = selectedMedia.title || selectedMedia.name;
 
-      const { error: mediaError } = await supabase
+      const { data: mediaData, error: mediaError } = await supabase
         .from('media_items')
         .upsert([{ 
-          id: mediaIdStr, 
-          title: mediaTitle,
           api_id: mediaIdStr, 
+          title: mediaTitle,
           media_type: mediaType,
           poster_url: selectedMedia.poster_path ? `https://image.tmdb.org/t/p/w500${selectedMedia.poster_path}` : null
-        }]);
+        }], { onConflict: 'api_id' })
+        .select('id')
+        .single();
 
       if (mediaError) {
         setWatchlistLoading(false);
-        return alert("Error al registrar el título en el sistema: " + mediaError.message);
+        return alert("Error al registrar el título: " + mediaError.message);
       }
 
-      // Ahora que está insertada en media_items, la asociamos a la watchlist del usuario
       const { data, error: watchlistError } = await supabase
         .from('watchlist')
         .insert({
           user_id: user.id,
-          media_item_id: mediaIdStr
+          media_item_id: mediaData.id
         })
         .select('id')
         .single();
@@ -112,33 +107,71 @@ export default function CreateReviewPage({ onReviewCreated }) {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
 
+    const mediaIdStr = String(selectedMedia.id);
     const mediaType = selectedMedia.media_type === 'tv' ? 'tv' : 'movie';
     const mediaTitle = selectedMedia.title || selectedMedia.name;
-    const mediaIdStr = String(selectedMedia.id);
 
-    const { error: mediaError } = await supabase
+    // 1. Obtener o crear la película usando api_id
+    let { data: existingMedia, error: searchError } = await supabase
       .from('media_items')
-      .upsert([{ 
-        id: mediaIdStr, 
-        title: mediaTitle,
-        api_id: mediaIdStr, 
-        media_type: mediaType,
-        poster_url: selectedMedia.poster_path ? `https://image.tmdb.org/t/p/w500${selectedMedia.poster_path}` : null
-      }]);
+      .select('id')
+      .eq('api_id', mediaIdStr)
+      .maybeSingle();
 
-    if (mediaError) {
-      setLoading(false);
-      return alert("Error al registrar: " + mediaError.message);
+    let mediaIdToUse = existingMedia?.id;
+
+    if (!mediaIdToUse) {
+      const { data: newMedia, error: insertError } = await supabase
+        .from('media_items')
+        .insert([{ 
+          api_id: mediaIdStr,
+          title: mediaTitle,
+          media_type: mediaType,
+          poster_url: selectedMedia.poster_path ? `https://image.tmdb.org/t/p/w500${selectedMedia.poster_path}` : null
+        }])
+        .select('id')
+        .single();
+
+      if (insertError) {
+        setLoading(false);
+        return alert("Error al preparar el título: " + insertError.message);
+      }
+      mediaIdToUse = newMedia.id;
     }
 
-    const { error: reviewError } = await supabase
+    // 2. Gestionar la reseña con confirmación de actualización
+    const { data: existingReview } = await supabase
       .from('reviews')
-      .insert([{ 
-        user_id: user.id, 
-        media_id: mediaIdStr, 
-        comment: comment, 
-        rating: parseFloat(rating) 
-      }]);
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('media_id', mediaIdToUse)
+      .maybeSingle();
+
+    let reviewError;
+    if (existingReview) {
+      const confirmUpdate = window.confirm("Ya habías publicado una reseña para esta película. ¿Deseas sustituirla por la actual?");
+      
+      if (confirmUpdate) {
+        const { error } = await supabase
+          .from('reviews')
+          .update({ comment: comment, rating: parseFloat(rating) })
+          .eq('id', existingReview.id);
+        reviewError = error;
+      } else {
+        setLoading(false);
+        return; 
+      }
+    } else {
+      const { error } = await supabase
+        .from('reviews')
+        .insert([{ 
+          user_id: user.id, 
+          media_id: mediaIdToUse, 
+          comment: comment, 
+          rating: parseFloat(rating) 
+        }]);
+      reviewError = error;
+    }
 
     setLoading(false);
     if (reviewError) {
@@ -163,8 +196,6 @@ export default function CreateReviewPage({ onReviewCreated }) {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-            
-            {/* Cabecera del título seleccionado con botón de pendientes integrado */}
             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 flex-wrap gap-4">
               <div className="flex items-center gap-4">
                 {selectedMedia.poster_path && (
