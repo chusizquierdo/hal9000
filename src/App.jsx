@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { supabase } from './supabaseClient';
+import { supabase } from "./supabaseClient"; // Asegúrate de que la ruta sea correcta según donde esté App.jsx
 import Dashboard from './components/Dashboard';
 import MovieDetailsPage from './components/MovieDetailsPage';
 import CreateReviewPage from './components/CreateReviewPage';
 import Auth from './components/Auth';
+import UpdatePassword from './components/UpdatePassword';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -12,12 +13,20 @@ export default function App() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
+    // 1. Detectar si estamos en la ruta de recuperación
+    if (window.location.pathname.includes('update-password')) {
+      setCurrentView('update-password');
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
     });
 
-    supabase.auth.onAuthStateChange((_event, session) => {
+    supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      if (event === 'PASSWORD_RECOVERY') {
+        setCurrentView('update-password');
+      }
     });
   }, []);
 
@@ -31,6 +40,11 @@ export default function App() {
     setRefreshKey(prev => prev + 1);
   };
 
+  // Si estamos en modo recuperar contraseña, ignoramos la sesión
+  if (currentView === 'update-password') {
+    return <UpdatePassword />;
+  }
+
   if (!session) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -41,7 +55,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navegación moderna con estilo glass-light */}
       <nav className="bg-white border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <h1 
@@ -68,7 +81,6 @@ export default function App() {
         </div>
       </nav>
 
-      {/* Contenido principal */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {currentView === 'dashboard' && (
           <Dashboard key={refreshKey} onViewMovie={(id) => { setSelectedMediaId(id); setCurrentView('details'); }} />

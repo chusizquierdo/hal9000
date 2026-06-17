@@ -79,7 +79,7 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [view, setView] = useState('login'); // 'login', 'signup', 'forgot'
   const [message, setMessage] = useState('');
   const [quote, setQuote] = useState(CINEMA_QUOTES[0]);
 
@@ -96,7 +96,7 @@ export default function Auth() {
     setLoading(true);
     setMessage('');
     
-    if (isSignUp) {
+    if (view === 'signup') {
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -104,9 +104,15 @@ export default function Auth() {
       });
       if (error) setMessage(error.message);
       else setMessage('¡Registro exitoso! Por favor, verifica tu correo electrónico para activar tu cuenta.');
-    } else {
+    } else if (view === 'login') {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setMessage(error.message);
+    } else if (view === 'forgot') {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/update-password`,
+      });
+      if (error) setMessage(error.message);
+      else setMessage('Se ha enviado un enlace de recuperación a tu correo electrónico.');
     }
     setLoading(false);
   };
@@ -124,23 +130,36 @@ export default function Auth() {
         {message ? (
           <div className="text-center text-red-300 p-4 bg-red-950/30 border border-red-900 rounded-lg">
             {message}
-            <button onClick={() => setMessage('')} className="block w-full mt-4 text-white underline">Volver</button>
+            <button onClick={() => { setMessage(''); setView('login'); }} className="block w-full mt-4 text-white underline">Volver al inicio</button>
           </div>
         ) : (
           <form onSubmit={handleAuth} className="flex flex-col gap-4 md:gap-6">
-            {isSignUp && (
+            {view === 'signup' && (
               <input type="text" placeholder="Usuario" className="w-full p-3 md:p-4 bg-gray-900 border border-gray-700 rounded-lg outline-none focus:border-red-500" value={username} onChange={(e) => setUsername(e.target.value)} required />
             )}
-            <input type="email" placeholder="Correo electrónico" className="w-full p-3 md:p-4 bg-gray-900 border border-gray-700 rounded-lg outline-none focus:border-red-500" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <input type="password" placeholder="Contraseña" className="w-full p-3 md:p-4 bg-gray-900 border border-gray-700 rounded-lg outline-none focus:border-red-500" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            
+            {(view === 'login' || view === 'signup' || view === 'forgot') && (
+              <input type="email" placeholder="Correo electrónico" className="w-full p-3 md:p-4 bg-gray-900 border border-gray-700 rounded-lg outline-none focus:border-red-500" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            )}
+            
+            {(view === 'login' || view === 'signup') && (
+              <input type="password" placeholder="Contraseña" className="w-full p-3 md:p-4 bg-gray-900 border border-gray-700 rounded-lg outline-none focus:border-red-500" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            )}
             
             <button disabled={loading} className="w-full bg-red-900 text-red-100 p-3 md:p-4 rounded-lg font-bold hover:bg-red-800 transition-all uppercase tracking-widest">
-              {loading ? 'Procesando...' : isSignUp ? 'Crear cuenta' : 'Acceder al Sistema'}
+              {loading ? 'Procesando...' : view === 'signup' ? 'Crear cuenta' : view === 'forgot' ? 'Enviar enlace' : 'Acceder al Sistema'}
             </button>
             
-            <button type="button" className="text-xs md:text-sm text-gray-500 hover:text-red-400 text-center" onClick={() => setIsSignUp(!isSignUp)}>
-              {isSignUp ? '¿Ya estás registrado? Inicia sesión' : '¿Nueva conexión? Regístrate'}
-            </button>
+            <div className="flex flex-col gap-2">
+              <button type="button" className="text-xs md:text-sm text-gray-500 hover:text-red-400 text-center" onClick={() => setView(view === 'login' ? 'signup' : 'login')}>
+                {view === 'login' ? '¿Nueva conexión? Regístrate' : '¿Ya estás registrado? Inicia sesión'}
+              </button>
+              {view === 'login' && (
+                <button type="button" className="text-xs text-gray-600 hover:text-red-400 text-center" onClick={() => setView('forgot')}>
+                  ¿Olvidaste tu contraseña?
+                </button>
+              )}
+            </div>
           </form>
         )}
       </div> 
