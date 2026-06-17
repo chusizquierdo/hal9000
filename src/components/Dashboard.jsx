@@ -12,9 +12,12 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
   }, [userIdFilter]);
 
   const fetchMediaWithData = async () => {
-    const { data: itemsFromDb } = await supabase
+    // Usamos .select con consulta explícita
+    const { data: itemsFromDb, error } = await supabase
       .from('media_items')
       .select(`*, reviews (id, comment, rating, created_at, user_id)`);
+    
+    if (error) console.error("Error al cargar datos:", error);
     
     if (itemsFromDb) {
       const itemsWithData = await Promise.all(itemsFromDb.map(async (m) => {
@@ -30,17 +33,11 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
           year = date ? parseInt(date.substring(0, 4)) : 0;
           title = data.title || data.name;
           genres = data.genres ? data.genres.map(g => g.name) : [];
-        } catch (e) { console.error("Error obteniendo datos de TMDB"); }
+        } catch (e) { console.error("Error TMDB"); }
 
         const sortedReviews = (m.reviews || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        
-        const userReview = userIdFilter 
-          ? (m.reviews || []).find(r => r.user_id === userIdFilter)
-          : null;
-
-        const avg = sortedReviews.length > 0 
-          ? (sortedReviews.reduce((acc, r) => acc + r.rating, 0) / sortedReviews.length) 
-          : 0;
+        const userReview = userIdFilter ? (m.reviews || []).find(r => r.user_id === userIdFilter) : null;
+        const avg = sortedReviews.length > 0 ? (sortedReviews.reduce((acc, r) => acc + r.rating, 0) / sortedReviews.length) : 0;
         
         return { 
           ...m, 
@@ -52,27 +49,31 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
           hasUserReview: userIdFilter ? !!userReview : true
         };
       }));
-
       setItems(itemsWithData);
     }
   };
 
   const handleDeleteMediaItem = async (itemId, title, e) => {
-    e.stopPropagation(); // Evita que se abra la ficha de detalles al hacer clic en borrar
-    
-    const confirmed = window.confirm(`⚠️ ACCIÓN DE ADMINISTRADOR:\n\n¿Estás completamente seguro de que quieres eliminar "${title}" del sistema?\nEsto borrará permanentemente el título y todas las reseñas asociadas de los usuarios.`);
-    
-    if (!confirmed) return;
+    e.stopPropagation(); 
+    if (!window.confirm(`¿ELIMINAR DEFINITIVAMENTE "${title}"?`)) return;
 
+    // BORRADO AGRESIVO:
+    // 1. Eliminamos reseñas y watchlist (si existen)
+    await supabase.from('reviews').delete().eq('media_id', itemId);
+    await supabase.from('watchlist').delete().eq('media_item_id', itemId);
+
+    // 2. Intentamos borrar el ítem
     const { error } = await supabase
       .from('media_items')
       .delete()
       .eq('id', itemId);
 
     if (error) {
-      alert(`Error al eliminar: ${error.message}`);
+      alert("Error al borrar de la DB: " + error.message);
     } else {
-      setItems(prev => prev.filter(item => item.id !== itemId));
+      // 3. ACTUALIZACIÓN FORZADA: Recargamos los datos directamente tras borrar
+      alert("Eliminado con éxito. Recargando...");
+      await fetchMediaWithData();
     }
   };
 
@@ -118,12 +119,10 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
             <option value="movie">Películas</option>
             <option value="tv">Series</option>
           </select>
-
           <select className="bg-white border border-gray-200 text-gray-700 py-2 px-4 rounded-xl shadow-sm outline-none" value={filterGenre} onChange={(e) => setFilterGenre(e.target.value)}>
             <option value="all">Todos los géneros</option>
             {allGenres.map(g => <option key={g} value={g}>{g}</option>)}
           </select>
-
           <select className="bg-white border border-gray-200 text-gray-700 py-2 px-4 rounded-xl shadow-sm outline-none" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
             <option value="recent">Última reseña</option>
             <option value="year_new">Año (Más reciente)</option>
@@ -149,22 +148,13 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
                     {m.media_type === 'tv' ? 'Serie' : 'Película'}
                   </span>
                 </div>
-
-                {/* NUEVO BOTÓN DE ELIMINACIÓN: Sutil, oculto por defecto y con icono vectorial premium */}
                 {isAdmin && (
                   <button 
                     onClick={(e) => handleDeleteMediaItem(m.id, m.title, e)}
                     className="absolute top-3 right-3 bg-black/40 hover:bg-red-600/90 backdrop-blur-md text-white/90 hover:text-white w-8 h-8 rounded-xl flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-all duration-300 transform scale-95 group-hover:scale-100 z-10"
-                    title="Eliminar de la plataforma"
+                    title="Eliminar película por completo"
                   >
-                    <svg 
-                      xmlns="http://www.w3.org/2000/svg" 
-                      fill="none" 
-                      viewBox="0 0 24 24" 
-                      strokeWidth="2" 
-                      stroke="currentColor" 
-                      className="w-4 h-4"
-                    >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                     </svg>
                   </button>
@@ -174,13 +164,11 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
                 <h2 className="font-bold text-gray-900 text-lg truncate">{m.title}</h2>
                 <p className="text-gray-500 text-sm mb-1">{m.year > 0 ? m.year : 'N/A'}</p>
                 <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wide mb-3">{m.genres?.slice(0, 2).join(' • ')}</p>
-                
                 {m.firstReview && (
                   <p className="text-xs text-gray-400 italic mb-4 line-clamp-2 border-t pt-3">
                     "{m.firstReview.comment}"
                   </p>
                 )}
-
                 <div className="flex items-center gap-1 font-bold text-yellow-500 mt-auto">
                   ★ <span className="text-gray-900">{m.avg > 0 ? m.avg.toFixed(1) : '0.0'}</span>
                 </div>
