@@ -8,19 +8,83 @@ export default function MovieDetailsPage({ mediaId, onBack }) {
   const [isEditing, setIsEditing] = useState(false);
   const [comment, setComment] = useState('');
   const [rating, setRating] = useState(5.0);
+  
+  // Nuevos estados para controlar la lista de pendientes
+  const [isInWatchlist, setIsInWatchlist] = useState(false);
+  const [watchlistId, setWatchlistId] = useState(null);
 
   useEffect(() => { fetchData(); }, [mediaId]);
 
   const fetchData = async () => {
     const { data: { user } } = await supabase.auth.getUser();
+    
+    // 1. Obtener datos de la película desde TMDB
     const res = await fetch(`https://api.themoviedb.org/3/movie/${mediaId}?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES`);
     const tmdbData = await res.json();
     setMovieData(tmdbData);
 
+    // 2. Obtener reseñas del título
     const { data: allReviews } = await supabase.from('reviews').select('*, profiles(username)').eq('media_id', mediaId);
     setReviews(allReviews || []);
+    
     const myReview = allReviews?.find(r => r.user_id === user?.id);
-    if (myReview) { setUserReview(myReview); setComment(myReview.comment); setRating(myReview.rating); }
+    if (myReview) { 
+      setUserReview(myReview); 
+      setComment(myReview.comment); 
+      setRating(myReview.rating); 
+    }
+
+    // 3. Comprobar si este título ya está en la lista de películas pendientes del usuario
+    if (user) {
+      const { data: watchlistEntry } = await supabase
+        .from('watchlist')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('media_item_id', mediaId)
+        .maybeSingle();
+
+      if (watchlistEntry) {
+        setIsInWatchlist(true);
+        setWatchlistId(watchlistEntry.id);
+      } else {
+        setIsInWatchlist(false);
+        setWatchlistId(null);
+      }
+    }
+  };
+
+  // Función para añadir o quitar de la lista de pendientes de forma dinámica
+  const handleToggleWatchlist = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    if (isInWatchlist) {
+      // Si ya está guardada, la eliminamos de la tabla
+      const { error } = await supabase
+        .from('watchlist')
+        .delete()
+        .eq('id', watchlistId);
+      
+      if (!error) {
+        setIsInWatchlist(false);
+        setWatchlistId(null);
+      }
+    } else {
+      // Si no está guardada, creamos el nuevo registro
+      const { data, error } = await supabase
+        .from('watchlist')
+        .insert({
+          user_id: user.id,
+          media_item_id: mediaId
+        })
+        .select('id')
+        .single();
+
+      if (!error && data) {
+        setIsInWatchlist(true);
+        setWatchlistId(data.id);
+      }
+    }
   };
 
   const handleSaveReview = async () => {
@@ -39,9 +103,24 @@ export default function MovieDetailsPage({ mediaId, onBack }) {
     <div className="max-w-4xl mx-auto p-6 bg-white rounded-3xl shadow-sm border border-gray-100">
       <button onClick={onBack} className="text-blue-600 mb-6 font-bold hover:underline">← Volver</button>
       <div className="flex gap-8 flex-col md:flex-row">
-        <img src={`https://image.tmdb.org/t/p/w300${movieData.poster_path}`} alt={movieData.title} className="w-64 rounded-2xl shadow-lg" />
-        <div>
-          <h1 className="text-4xl font-black text-gray-900">{movieData.title}</h1>
+        <img src={`https://image.tmdb.org/t/p/w300${movieData.poster_path}`} alt={movieData.title} className="w-64 rounded-2xl shadow-lg shrink-0 object-cover" />
+        <div className="flex flex-col justify-start">
+          <h1 className="text-4xl font-black text-gray-900 tracking-tight">{movieData.title}</h1>
+          
+          {/* Botón interactivo de añadir/quitar de pendientes */}
+          <div className="mt-3">
+            <button 
+              onClick={handleToggleWatchlist}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold border transition-all duration-200 ${
+                isInWatchlist 
+                  ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                  : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 hover:border-gray-300'
+              }`}
+            >
+              {isInWatchlist ? '✓ En películas pendientes' : '⏳ Añadir a pendientes'}
+            </button>
+          </div>
+
           <p className="mt-4 text-gray-700 leading-relaxed">{movieData.overview}</p>
         </div>
       </div>

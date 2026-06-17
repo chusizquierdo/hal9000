@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import MediaSearch from './MediaSearch';
 
@@ -7,6 +7,102 @@ export default function CreateReviewPage({ onReviewCreated }) {
   const [comment, setComment] = useState('');
   const [rating, setRating] = useState(0); 
   const [loading, setLoading] = useState(false);
+  
+  // Nuevos estados para la gestión de pendientes desde el buscador
+  const [isInWatchlist, setIsInWatchlist] = useState(false);
+  const [watchlistId, setWatchlistId] = useState(null);
+  const [watchlistLoading, setWatchlistLoading] = useState(false);
+
+  // Cada vez que el usuario elija un título diferente en el buscador, comprobamos su estado
+  useEffect(() => {
+    if (selectedMedia) {
+      checkWatchlist();
+    }
+  }, [selectedMedia]);
+
+  const checkWatchlist = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: watchlistEntry } = await supabase
+      .from('watchlist')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('media_item_id', String(selectedMedia.id))
+      .maybeSingle();
+
+    if (watchlistEntry) {
+      setIsInWatchlist(true);
+      setWatchlistId(watchlistEntry.id);
+    } else {
+      setIsInWatchlist(false);
+      setWatchlistId(null);
+    }
+  };
+
+  const handleToggleWatchlist = async () => {
+    setWatchlistLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setWatchlistLoading(false);
+      return;
+    }
+
+    const mediaIdStr = String(selectedMedia.id);
+
+    if (isInWatchlist) {
+      // Si ya está guardada, la quitamos
+      const { error } = await supabase
+        .from('watchlist')
+        .delete()
+        .eq('id', watchlistId);
+      
+      if (!error) {
+        setIsInWatchlist(false);
+        setWatchlistId(null);
+      } else {
+        alert("Error al quitar de pendientes: " + error.message);
+      }
+    } else {
+      // Si no está guardada, primero aseguramos que la película exista en media_items
+      // para evitar que salte el error de clave foránea de la base de datos
+      const mediaType = selectedMedia.media_type === 'tv' ? 'tv' : 'movie';
+      const mediaTitle = selectedMedia.title || selectedMedia.name;
+
+      const { error: mediaError } = await supabase
+        .from('media_items')
+        .upsert([{ 
+          id: mediaIdStr, 
+          title: mediaTitle,
+          api_id: mediaIdStr, 
+          media_type: mediaType,
+          poster_url: selectedMedia.poster_path ? `https://image.tmdb.org/t/p/w500${selectedMedia.poster_path}` : null
+        }]);
+
+      if (mediaError) {
+        setWatchlistLoading(false);
+        return alert("Error al registrar el título en el sistema: " + mediaError.message);
+      }
+
+      // Ahora que está insertada en media_items, la asociamos a la watchlist del usuario
+      const { data, error: watchlistError } = await supabase
+        .from('watchlist')
+        .insert({
+          user_id: user.id,
+          media_item_id: mediaIdStr
+        })
+        .select('id')
+        .single();
+
+      if (!watchlistError && data) {
+        setIsInWatchlist(true);
+        setWatchlistId(data.id);
+      } else if (watchlistError) {
+        alert("Error al añadir a pendientes: " + watchlistError.message);
+      }
+    }
+    setWatchlistLoading(false);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -18,13 +114,14 @@ export default function CreateReviewPage({ onReviewCreated }) {
 
     const mediaType = selectedMedia.media_type === 'tv' ? 'tv' : 'movie';
     const mediaTitle = selectedMedia.title || selectedMedia.name;
+    const mediaIdStr = String(selectedMedia.id);
 
     const { error: mediaError } = await supabase
       .from('media_items')
       .upsert([{ 
-        id: String(selectedMedia.id), 
+        id: mediaIdStr, 
         title: mediaTitle,
-        api_id: String(selectedMedia.id), 
+        api_id: mediaIdStr, 
         media_type: mediaType,
         poster_url: selectedMedia.poster_path ? `https://image.tmdb.org/t/p/w500${selectedMedia.poster_path}` : null
       }]);
@@ -38,7 +135,7 @@ export default function CreateReviewPage({ onReviewCreated }) {
       .from('reviews')
       .insert([{ 
         user_id: user.id, 
-        media_id: String(selectedMedia.id), 
+        media_id: mediaIdStr, 
         comment: comment, 
         rating: parseFloat(rating) 
       }]);
@@ -66,14 +163,31 @@ export default function CreateReviewPage({ onReviewCreated }) {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
-              {selectedMedia.poster_path && (
-                <img src={`https://image.tmdb.org/t/p/w92${selectedMedia.poster_path}`} alt="poster" className="w-16 h-24 object-cover rounded-lg shadow-sm" />
-              )}
-              <div>
-                <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Estás reseñando</p>
-                <p className="text-xl font-bold text-gray-900">{selectedMedia.title || selectedMedia.name}</p>
+            
+            {/* Cabecera del título seleccionado con botón de pendientes integrado */}
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 flex-wrap gap-4">
+              <div className="flex items-center gap-4">
+                {selectedMedia.poster_path && (
+                  <img src={`https://image.tmdb.org/t/p/w92${selectedMedia.poster_path}`} alt="poster" className="w-16 h-24 object-cover rounded-lg shadow-sm" />
+                )}
+                <div>
+                  <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Estás reseñando</p>
+                  <p className="text-xl font-bold text-gray-900">{selectedMedia.title || selectedMedia.name}</p>
+                </div>
               </div>
+              
+              <button 
+                type="button"
+                disabled={watchlistLoading}
+                onClick={handleToggleWatchlist}
+                className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all duration-200 ${
+                  isInWatchlist 
+                    ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                {watchlistLoading ? '...' : isInWatchlist ? '✓ En pendientes' : '⏳ Añadir a pendientes'}
+              </button>
             </div>
             
             <div className="flex flex-col gap-2">
