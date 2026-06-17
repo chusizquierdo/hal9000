@@ -22,11 +22,13 @@ export default function App() {
     }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+      if (session) setSession(session);
     });
 
     supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session);
+      if (session) {
+        setSession(session);
+      }
       if (event === 'PASSWORD_RECOVERY') {
         setCurrentView('update-password');
       }
@@ -34,7 +36,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (session?.user) {
+    // Solo cargamos perfil de Supabase si hay un usuario real autenticado
+    if (session?.user && !session.isGuest) {
       fetchUserProfile();
     }
   }, [session]);
@@ -61,9 +64,28 @@ export default function App() {
     }
   };
 
+  // NUEVA FUNCIÓN: Configura una sesión simulada segura para el Invitado
+  const handleGuestLogin = () => {
+    setSession({
+      isGuest: true,
+      user: { id: 'guest-user', email: 'invitado@hal9000.com' }
+    });
+    setProfile({
+      username: 'Invitado',
+      avatar_url: ''
+    });
+    setCurrentView('dashboard');
+  };
+
   const handleLogout = async () => {
     setIsDropdownOpen(false);
-    await supabase.auth.signOut();
+    if (session?.isGuest) {
+      setSession(null); // Limpieza instantánea para el invitado
+    } else {
+      await supabase.auth.signOut();
+      setSession(null);
+    }
+    setCurrentView('dashboard');
   };
 
   const navigateToDashboard = () => {
@@ -73,18 +95,21 @@ export default function App() {
   };
 
   const navigateToMyReviews = () => {
+    if (session?.isGuest) return;
     setSelectedMediaId(null);
     setCurrentView('my-reviews');
     setIsDropdownOpen(false);
   };
 
   const navigateToWatchlist = () => {
+    if (session?.isGuest) return;
     setSelectedMediaId(null);
     setCurrentView('watchlist');
     setIsDropdownOpen(false);
   };
 
   const navigateToSettings = () => {
+    if (session?.isGuest) return;
     setSelectedMediaId(null);
     setCurrentView('settings');
     setIsDropdownOpen(false);
@@ -94,10 +119,11 @@ export default function App() {
     return <UpdatePassword />;
   }
 
+  // Intercepta si no hay sesión activa ni modo invitado puesto
   if (!session) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Auth />
+        <Auth onGuestLogin={handleGuestLogin} />
       </div>
     );
   }
@@ -114,15 +140,17 @@ export default function App() {
           </h1>
           
           <div className="flex gap-3 sm:gap-4 items-center">
-            <button 
-              onClick={() => { setCurrentView('create'); setIsDropdownOpen(false); }} 
-              className="bg-blue-600 text-white px-4 sm:px-5 py-2 rounded-full font-bold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg text-xs sm:text-sm"
-            >
-              + Nueva Reseña
-            </button>
+            {/* Ocultamos de forma condicional el botón de reseña si es invitado */}
+            {!session.isGuest && (
+              <button 
+                onClick={() => { setCurrentView('create'); setIsDropdownOpen(false); }} 
+                className="bg-blue-600 text-white px-4 sm:px-5 py-2 rounded-full font-bold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg text-xs sm:text-sm"
+              >
+                + Nueva Reseña
+              </button>
+            )}
 
             <div className="relative">
-              {/* DISEÑO MEJORADO: Botón puramente circular para el Avatar */}
               <button 
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="flex items-center justify-center w-10 h-10 rounded-full focus:outline-none transition-all duration-200 border-2 border-transparent hover:border-blue-500 hover:shadow-md"
@@ -146,7 +174,6 @@ export default function App() {
                   
                   <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 py-2 origin-top-right transition-all">
                     
-                    {/* CABECERA PREMIUM DEL DESPLEGABLE */}
                     <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50 rounded-t-2xl flex items-center gap-3">
                       {profile.avatar_url ? (
                         <img 
@@ -161,40 +188,56 @@ export default function App() {
                       )}
                       <div className="overflow-hidden">
                         <p className="text-sm font-black text-gray-900 truncate">{profile.username}</p>
-                        <p className="text-xs text-gray-400 truncate font-medium">{session.user.email}</p>
+                        <p className="text-xs text-gray-400 truncate font-medium">
+                          {session.isGuest ? 'Modo de lectura' : session.user.email}
+                        </p>
                       </div>
                     </div>
 
-                    {/* MENÚ DE OPCIONES */}
-                    <button 
-                      onClick={navigateToSettings}
-                      className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-bold flex items-center gap-2 transition-colors mt-1"
-                    >
-                      ⚙️ Configurar Perfil
-                    </button>
-                    
-                    <button 
-                      onClick={navigateToMyReviews}
-                      className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors"
-                    >
-                      📂 Mis reseñas (Biblioteca)
-                    </button>
-                    
-                    <button 
-                      onClick={navigateToWatchlist}
-                      className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors"
-                    >
-                      ⏳ Películas pendientes
-                    </button>
-                    
-                    <div className="border-t border-gray-100 mt-2 pt-1.5">
-                      <button 
-                        onClick={handleLogout} 
-                        className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-bold flex items-center gap-2 transition-colors"
-                      >
-                        🚪 Cerrar sesión
-                      </button>
-                    </div>
+                    {/* RENDERIZADO CONDICIONAL DE MENÚS: Si es invitado, solo puede salir o loguearse */}
+                    {!session.isGuest ? (
+                      <>
+                        <button 
+                          onClick={navigateToSettings}
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-bold flex items-center gap-2 transition-colors mt-1"
+                        >
+                          ⚙️ Configurar Perfil
+                        </button>
+                        
+                        <button 
+                          onClick={navigateToMyReviews}
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors"
+                        >
+                          📂 Mis reseñas (Biblioteca)
+                        </button>
+                        
+                        <button 
+                          onClick={navigateToWatchlist}
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors"
+                        >
+                          ⏳ Películas pendientes
+                        </button>
+                        
+                        <div className="border-t border-gray-100 mt-2 pt-1.5">
+                          <button 
+                            onClick={handleLogout} 
+                            className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-bold flex items-center gap-2 transition-colors"
+                          >
+                            🚪 Cerrar sesión
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="p-1 mt-1">
+                        <button 
+                          onClick={handleLogout} 
+                          className="w-full text-left px-4 py-2.5 text-sm text-blue-600 bg-blue-50/50 hover:bg-blue-600 hover:text-white font-bold flex items-center gap-2 transition-colors rounded-xl"
+                        >
+                          🚪 Salir / Iniciar Sesión
+                        </button>
+                      </div>
+                    )}
+
                   </div>
                 </>
               )}
@@ -208,7 +251,7 @@ export default function App() {
           <Dashboard key={refreshKey} onViewMovie={(id) => { setSelectedMediaId(id); setCurrentView('details'); }} />
         )}
         
-        {currentView === 'my-reviews' && (
+        {currentView === 'my-reviews' && !session.isGuest && (
           <Dashboard 
             key="my-library" 
             userIdFilter={session.user.id} 
@@ -217,7 +260,7 @@ export default function App() {
           />
         )}
 
-        {currentView === 'watchlist' && (
+        {currentView === 'watchlist' && !session.isGuest && (
           <Watchlist 
             onViewMovie={(id) => { setSelectedMediaId(id); setCurrentView('details'); }} 
             userId={session.user.id} 
@@ -229,11 +272,11 @@ export default function App() {
           <MovieDetailsPage mediaId={selectedMediaId} onBack={navigateToDashboard} />
         )}
 
-        {currentView === 'create' && (
+        {currentView === 'create' && !session.isGuest && (
           <CreateReviewPage onReviewCreated={navigateToDashboard} />
         )}
 
-        {currentView === 'settings' && (
+        {currentView === 'settings' && !session.isGuest && (
           <ProfileSettings 
             session={session} 
             onBack={navigateToDashboard} 

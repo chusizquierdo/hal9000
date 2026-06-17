@@ -47,7 +47,7 @@ const CINEMA_QUOTES = [
   "Mañana será otro día. (Lo que el viento se llevó)",
   "Hasta la vista, baby. (Terminator 2)",
   "Podría haber sido alguien. (La ley del silencio)",
-  "La codicia, a falta de una palabra mejor, es buena. (Wall Street)",
+  "La codicia, a falta de una palabra mejor, is buena. (Wall Street)",
   "No hay llanto en el béisbol. (Ellas dan el golpe)",
   "Si tú lo construyes, él vendrá. (Campo de sueños)",
   "¡Dadme la libertad o dadme la muerte! (Braveheart)",
@@ -74,7 +74,7 @@ const CINEMA_QUOTES = [
   "No tenéis ninguna posibilidad, pero... contáis con mi simpatía. (Alien, el octavo pasajero)"
 ];
 
-export default function Auth() {
+export default function Auth({ onGuestLogin }) {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -108,7 +108,6 @@ export default function Auth() {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setMessage(error.message);
     } else if (view === 'forgot') {
-      // CORRECCIÓN: Redirigimos a la raíz exacta del proyecto para evitar errores 404 en Vercel
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}`,
       });
@@ -134,7 +133,7 @@ export default function Auth() {
             <button onClick={() => { setMessage(''); setView('login'); }} className="block w-full mt-4 text-white underline">Volver al inicio</button>
           </div>
         ) : (
-          <form onSubmit={handleAuth} className="flex flex-col gap-4 md:gap-6">
+          <form onSubmit={handleAuth} className="flex flex-col gap-4 md:gap-4">
             {view === 'signup' && (
               <input type="text" placeholder="Usuario" className="w-full p-3 md:p-4 bg-gray-900 border border-gray-700 rounded-lg outline-none focus:border-red-500" value={username} onChange={(e) => setUsername(e.target.value)} required />
             )}
@@ -150,6 +149,17 @@ export default function Auth() {
             <button disabled={loading} className="w-full bg-red-900 text-red-100 p-3 md:p-4 rounded-lg font-bold hover:bg-red-800 transition-all uppercase tracking-widest">
               {loading ? 'Procesando...' : view === 'signup' ? 'Crear cuenta' : view === 'forgot' ? 'Enviar enlace' : 'Acceder al Sistema'}
             </button>
+
+            {/* BOTÓN NUEVO: Permite el bypass directo al modo observador únicamente en la vista login */}
+            {view === 'login' && (
+              <button 
+                type="button"
+                onClick={onGuestLogin}
+                className="w-full bg-transparent border border-gray-700 text-gray-400 p-3 md:p-4 rounded-lg font-bold hover:border-gray-500 hover:text-white transition-all uppercase tracking-widest text-center text-sm"
+              >
+                👁️ Entrar como observador
+              </button>
+            )}
             
             <div className="flex flex-col gap-2">
               <button type="button" className="text-xs md:text-sm text-gray-500 hover:text-red-400 text-center" onClick={() => setView(view === 'login' ? 'signup' : 'login')}>
