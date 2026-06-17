@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 
-export default function Dashboard({ onViewMovie, userIdFilter = null, onBack }) {
+export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, isAdmin }) {
   const [items, setItems] = useState([]);
   const [sortBy, setSortBy] = useState('recent');
   const [filterType, setFilterType] = useState('all');
@@ -57,6 +57,25 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack }) 
     }
   };
 
+  const handleDeleteMediaItem = async (itemId, title, e) => {
+    e.stopPropagation(); // Evita que se abra la ficha de detalles al hacer clic en borrar
+    
+    const confirmed = window.confirm(`⚠️ ACCIÓN DE ADMINISTRADOR:\n\n¿Estás completamente seguro de que quieres eliminar "${title}" del sistema?\nEsto borrará permanentemente el título y todas las reseñas asociadas de los usuarios.`);
+    
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from('media_items')
+      .delete()
+      .eq('id', itemId);
+
+    if (error) {
+      alert(`Error al eliminar: ${error.message}`);
+    } else {
+      setItems(prev => prev.filter(item => item.id !== itemId));
+    }
+  };
+
   const allGenres = [...new Set(items.flatMap(item => item.genres))].sort();
 
   const filteredAndSortedItems = items
@@ -81,15 +100,10 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack }) 
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-4">
-      {/* Botón de retorno chulo si estamos en la biblioteca personal */}
       {userIdFilter && onBack && (
         <div className="mb-4">
-          <button 
-            onClick={onBack} 
-            className="group inline-flex items-center gap-2 bg-white text-gray-600 hover:text-blue-600 px-4 py-2 rounded-xl text-xs font-bold border border-gray-200 shadow-sm hover:shadow transition-all"
-          >
-            <span className="inline-block transform group-hover:-translate-x-1 transition-transform">←</span> 
-            Volver al Feed Principal
+          <button onClick={onBack} className="group inline-flex items-center gap-2 bg-white text-gray-600 hover:text-blue-600 px-4 py-2 rounded-xl text-xs font-bold border border-gray-200 shadow-sm hover:shadow transition-all">
+            <span className="inline-block transform group-hover:-translate-x-1 transition-transform">←</span> Volver al Feed Principal
           </button>
         </div>
       )}
@@ -127,12 +141,34 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack }) 
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredAndSortedItems.map(m => (
-            <div key={m.id} className="group bg-white rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-300 border border-gray-100 cursor-pointer flex flex-col" onClick={() => onViewMovie(m.id)}>
-              <div className="relative h-64">
-                <img src={m.poster_url} alt={m.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 rounded-t-2xl" />
-                <div className="absolute top-3 left-3">
-                  <span className="bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase">{m.media_type === 'tv' ? 'Serie' : 'Película'}</span>
+            <div key={m.id} className="group bg-white rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-300 border border-gray-100 cursor-pointer flex flex-col relative" onClick={() => onViewMovie(m.id)}>
+              <div className="relative h-64 overflow-hidden rounded-t-2xl">
+                <img src={m.poster_url} alt={m.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                <div className="absolute top-3 left-3 flex gap-1.5 items-center">
+                  <span className="bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase">
+                    {m.media_type === 'tv' ? 'Serie' : 'Película'}
+                  </span>
                 </div>
+
+                {/* NUEVO BOTÓN DE ELIMINACIÓN: Sutil, oculto por defecto y con icono vectorial premium */}
+                {isAdmin && (
+                  <button 
+                    onClick={(e) => handleDeleteMediaItem(m.id, m.title, e)}
+                    className="absolute top-3 right-3 bg-black/40 hover:bg-red-600/90 backdrop-blur-md text-white/90 hover:text-white w-8 h-8 rounded-xl flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-all duration-300 transform scale-95 group-hover:scale-100 z-10"
+                    title="Eliminar de la plataforma"
+                  >
+                    <svg 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      fill="none" 
+                      viewBox="0 0 24 24" 
+                      strokeWidth="2" 
+                      stroke="currentColor" 
+                      className="w-4 h-4"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                    </svg>
+                  </button>
+                )}
               </div>
               <div className="p-5 flex-grow">
                 <h2 className="font-bold text-gray-900 text-lg truncate">{m.title}</h2>

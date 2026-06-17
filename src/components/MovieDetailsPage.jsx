@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 
-export default function MovieDetailsPage({ mediaId, onBack }) {
+export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
   const [movieData, setMovieData] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [userReview, setUserReview] = useState(null);
@@ -9,23 +9,19 @@ export default function MovieDetailsPage({ mediaId, onBack }) {
   const [comment, setComment] = useState('');
   const [rating, setRating] = useState(5.0);
   
-  // Estados para controlar la lista de pendientes
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [watchlistId, setWatchlistId] = useState(null);
 
-  // Estados base de información técnica
   const [director, setDirector] = useState('');
   const [cast, setCast] = useState([]);
   const [watchProviders, setWatchProviders] = useState([]);
 
-  // NUEVOS ESTADOS: Control de las 4 funciones solicitadas y navegación inteligente
   const [currentTmdbId, setCurrentTmdbId] = useState(null);
   const [currentMediaType, setCurrentMediaType] = useState('movie');
   const [supabaseItemId, setSupabaseItemId] = useState(null);
   const [trailerKey, setTrailerKey] = useState('');
   const [recommendations, setRecommendations] = useState([]);
 
-  // 1. Sincronizar el id inicial enviado por el Dashboard
   useEffect(() => {
     const resolveInitialId = async () => {
       const { data: item } = await supabase
@@ -39,7 +35,6 @@ export default function MovieDetailsPage({ mediaId, onBack }) {
         setCurrentMediaType(item.media_type === 'tv' ? 'tv' : 'movie');
         setSupabaseItemId(mediaId);
       } else {
-        // Fallback preventivo si el ID directo es de TMDB
         setCurrentTmdbId(mediaId);
         setCurrentMediaType('movie');
         setSupabaseItemId(null);
@@ -48,7 +43,6 @@ export default function MovieDetailsPage({ mediaId, onBack }) {
     resolveInitialId();
   }, [mediaId]);
 
-  // 2. Escuchar cambios de navegación interna (al pulsar recomendaciones)
   useEffect(() => {
     if (currentTmdbId) {
       fetchData();
@@ -60,7 +54,6 @@ export default function MovieDetailsPage({ mediaId, onBack }) {
     const type = currentMediaType;
     const tmdbId = currentTmdbId;
 
-    // Verificar si el elemento multimedia actual existe ya en Supabase
     const { data: existingItem } = await supabase
       .from('media_items')
       .select('id')
@@ -70,12 +63,10 @@ export default function MovieDetailsPage({ mediaId, onBack }) {
     const dbItemId = existingItem ? existingItem.id : null;
     setSupabaseItemId(dbItemId);
 
-    // A. Obtener datos de TMDB (Ficha principal)
     const res = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES`);
     const tmdbData = await res.json();
     setMovieData(tmdbData);
 
-    // B. Obtener el reparto principal y director/creadores
     try {
       const creditsRes = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/credits?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES`);
       const creditsData = await creditsRes.json();
@@ -90,14 +81,12 @@ export default function MovieDetailsPage({ mediaId, onBack }) {
       }
     } catch (e) { console.error("Error en créditos", e); }
 
-    // C. Obtener plataformas de streaming (JustWatch)
     try {
       const providersRes = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/watch/providers?api_key=8005d659cd2756fbe0a09eaba113b878`);
       const providersData = await providersRes.json();
       setWatchProviders(providersData.results?.ES?.flatrate || []);
     } catch (e) { console.error("Error en proveedores", e); }
 
-    // MEJORA 1: Obtener Tráiler oficial de YouTube (Español o fallback Inglés)
     try {
       let videoRes = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/videos?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES`);
       let videoData = await videoRes.json();
@@ -111,14 +100,12 @@ export default function MovieDetailsPage({ mediaId, onBack }) {
       setTrailerKey(trailer ? trailer.key : '');
     } catch (e) { setTrailerKey(''); }
 
-    // MEJORA 2: Obtener títulos recomendados similares
     try {
       const recRes = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/recommendations?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES`);
       const recData = await recRes.json();
-      setRecommendations(recData.results?.slice(0, 8) || []); // Guardamos las 8 mejores recomendaciones
+      setRecommendations(recData.results?.slice(0, 8) || []);
     } catch (e) { setRecommendations([]); }
 
-    // D. Cargar reseñas y estado de lista de pendientes si existe en BD
     if (dbItemId) {
       const { data: allReviews } = await supabase.from('reviews').select('*, profiles(username)').eq('media_id', dbItemId);
       setReviews(allReviews || []);
@@ -147,7 +134,6 @@ export default function MovieDetailsPage({ mediaId, onBack }) {
         }
       }
     } else {
-      // Valores por defecto si estamos explorando un título recomendado no registrado
       setReviews([]);
       setUserReview(null);
       setComment('');
@@ -157,7 +143,23 @@ export default function MovieDetailsPage({ mediaId, onBack }) {
     }
   };
 
-  // Función auxiliar inteligente para auto-registrar películas/series de las recomendaciones
+  // FUNCIÓN NUEVA: Permite al Administrador moderar y borrar comentarios inapropiados
+  const handleDeleteUserReview = async (reviewId) => {
+    const confirmed = window.confirm("⚠️ ACCIÓN DE ADMINISTRADOR:\n\n¿Seguro que quieres eliminar esta reseña de forma permanente?");
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from('reviews')
+      .delete()
+      .eq('id', reviewId);
+
+    if (error) {
+      alert("Error al borrar la reseña");
+    } else {
+      fetchData(); // Recarga los comentarios y recalcula la nota media global de forma limpia
+    }
+  };
+
   const ensureMediaItemExistsInDb = async () => {
     if (supabaseItemId) return supabaseItemId;
 
@@ -166,12 +168,7 @@ export default function MovieDetailsPage({ mediaId, onBack }) {
 
     const { data, error } = await supabase
       .from('media_items')
-      .insert({
-        title,
-        media_type: currentMediaType,
-        api_id: String(currentTmdbId),
-        poster_url
-      })
+      .insert({ title, media_type: currentMediaType, api_id: String(currentTmdbId), poster_url })
       .select('id')
       .single();
 
@@ -213,7 +210,6 @@ export default function MovieDetailsPage({ mediaId, onBack }) {
     setIsEditing(false); fetchData();
   };
 
-  // MEJORA 4: Formatear la duración de películas de minutos a texto (Ej: 135 mins -> 2h 15m)
   const formatRuntime = (minutes) => {
     if (!minutes) return 'No disponible';
     const hrs = Math.floor(minutes / 60);
@@ -221,7 +217,6 @@ export default function MovieDetailsPage({ mediaId, onBack }) {
     return hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
   };
 
-  // MEJORA 3: Traducir estados nativos de series
   const translateTvStatus = (status) => {
     const statuses = {
       'Returning Series': 'En emisión',
@@ -271,7 +266,6 @@ export default function MovieDetailsPage({ mediaId, onBack }) {
 
           <p className="mt-4 text-gray-700 leading-relaxed">{movieData.overview || "No hay sinopsis disponible en español para este título."}</p>
 
-          {/* Cuadro de información técnica mejorado con MEJORAS 3 y 4 */}
           <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100 text-sm">
             <div>
               <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wider">Año de Lanzamiento</p>
@@ -285,13 +279,11 @@ export default function MovieDetailsPage({ mediaId, onBack }) {
             </div>
 
             {currentMediaType === 'movie' ? (
-              /* Bloque exclusivo para Películas */
               <div>
                 <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wider">Duración</p>
                 <p className="text-gray-800 font-semibold mt-0.5">{formatRuntime(movieData.runtime)}</p>
               </div>
             ) : (
-              /* MEJORA 3: Bloques exclusivos detallados para Series de TV */
               <>
                 <div>
                   <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wider">Temporadas</p>
@@ -316,7 +308,6 @@ export default function MovieDetailsPage({ mediaId, onBack }) {
             </div>
           </div>
 
-          {/* Apartado de plataformas donde ver el contenido */}
           <div className="mt-6">
             <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wider mb-2.5">Disponible en (España)</p>
             {watchProviders.length > 0 ? (
@@ -335,51 +326,29 @@ export default function MovieDetailsPage({ mediaId, onBack }) {
         </div>
       </div>
 
-      {/* MEJORA 1: Sección Visual del Tráiler Oficial integrado con iframe */}
       {trailerKey && (
         <div className="mt-8 border-t border-gray-100 pt-6">
           <h2 className="text-xl font-extrabold text-gray-900 mb-4 tracking-tight flex items-center gap-2">🎬 Tráiler Oficial</h2>
           <div className="aspect-video w-full rounded-2xl overflow-hidden shadow-sm border border-gray-200 bg-black">
-            <iframe
-              src={`https://www.youtube.com/embed/${trailerKey}?rel=0`}
-              title="Tráiler del título"
-              className="w-full h-full border-0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            ></iframe>
+            <iframe src={`https://www.youtube.com/embed/${trailerKey}?rel=0`} title="Tráiler del título" className="w-full h-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
           </div>
         </div>
       )}
 
-      {/* MEJORA 2: Carrusel horizontal infinito de recomendaciones similares */}
       {recommendations.length > 0 && (
         <div className="mt-8 border-t border-gray-100 pt-6">
           <h2 className="text-xl font-extrabold text-gray-900 mb-4 tracking-tight">✨ Títulos similares recomendados</h2>
           <div className="flex overflow-x-auto gap-4 pb-3 scrollbar-thin scrollbar-thumb-gray-200 snap-x">
             {recommendations.map((rec) => (
-              <div 
-                key={rec.id} 
-                onClick={() => {
-                  setCurrentTmdbId(rec.id);
-                  setCurrentMediaType(rec.media_type || 'movie');
-                  window.scrollTo({ top: 0, behavior: 'smooth' }); // Subir suavemente la pantalla al recargar
-                }}
-                className="w-32 shrink-0 cursor-pointer group snap-start"
-              >
+              <div key={rec.id} onClick={() => { setCurrentTmdbId(rec.id); setCurrentMediaType(rec.media_type || 'movie'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="w-32 shrink-0 cursor-pointer group snap-start">
                 <div className="relative h-44 w-full rounded-xl overflow-hidden shadow-sm group-hover:shadow-md transition-all border border-gray-100 bg-gray-50">
                   {rec.poster_path ? (
-                    <img 
-                      src={`https://image.tmdb.org/t/p/w200${rec.poster_path}`} 
-                      alt={rec.title || rec.name} 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
+                    <img src={`https://image.tmdb.org/t/p/w200${rec.poster_path}`} alt={rec.title || rec.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center p-2 text-center text-[10px] text-gray-400 font-bold uppercase">Sin Póster</div>
                   )}
                 </div>
-                <p className="text-[11px] font-bold text-gray-800 mt-2 truncate group-hover:text-blue-600 transition-colors">
-                  {rec.title || rec.name}
-                </p>
+                <p className="text-[11px] font-bold text-gray-800 mt-2 truncate group-hover:text-blue-600 transition-colors">{rec.title || rec.name}</p>
               </div>
             ))}
           </div>
@@ -388,7 +357,6 @@ export default function MovieDetailsPage({ mediaId, onBack }) {
 
       <hr className="my-8" />
       
-      {/* Sección de Reseñas */}
       <h2 className="text-2xl font-bold mb-4">Reseñas de la comunidad</h2>
       <div className="p-6 bg-gray-50 rounded-2xl mb-8 border border-gray-100">
         <h3 className="font-bold text-lg mb-4">{userReview && !isEditing ? 'Tu reseña' : 'Escribe tu reseña'}</h3>
@@ -423,10 +391,23 @@ export default function MovieDetailsPage({ mediaId, onBack }) {
       <div className="space-y-4">
         {reviews.filter(r => r.id !== userReview?.id).length > 0 ? (
           reviews.filter(r => r.id !== userReview?.id).map(r => (
-            <div key={r.id} className="border-b border-gray-100 pb-4">
-              <p className="font-bold text-gray-900 text-sm">{r.profiles?.username || 'Usuario anónimo'}</p>
-              <p className="text-yellow-500 font-bold text-sm mt-0.5">{r.rating} ★</p>
-              <p className="text-gray-600 text-sm mt-1">{"comment" in r ? r.comment : ''}</p>
+            <div key={r.id} className="border-b border-gray-100 pb-4 flex justify-between items-start gap-4">
+              <div className="flex-grow">
+                <p className="font-bold text-gray-900 text-sm">{r.profiles?.username || 'Usuario anónimo'}</p>
+                <p className="text-yellow-500 font-bold text-sm mt-0.5">{r.rating} ★</p>
+                <p className="text-gray-600 text-sm mt-1">{"comment" in r ? r.comment : ''}</p>
+              </div>
+              
+              {/* ACCIÓN DE MODERACIÓN: Si eres admin, puedes borrar cualquier review del listado */}
+              {isAdmin && (
+                <button 
+                  onClick={() => handleDeleteUserReview(r.id)}
+                  className="text-xs bg-red-50 text-red-600 border border-red-200 px-2.5 py-1 rounded-xl font-bold hover:bg-red-600 hover:text-white transition-all tracking-tight shrink-0 shadow-sm"
+                  title="Borrar comentario inapropiado"
+                >
+                  Eliminar
+                </button>
+              )}
             </div>
           ))
         ) : (
