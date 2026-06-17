@@ -4,15 +4,17 @@ import Dashboard from './components/Dashboard';
 import MovieDetailsPage from './components/MovieDetailsPage';
 import CreateReviewPage from './components/CreateReviewPage';
 import Watchlist from './components/Watchlist';
+import ProfileSettings from './components/ProfileSettings';
 import Auth from './components/Auth';
 import UpdatePassword from './components/UpdatePassword';
 
 export default function App() {
   const [session, setSession] = useState(null);
-  const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard', 'my-reviews', 'watchlist', 'details', 'create'
+  const [currentView, setCurrentView] = useState('dashboard');
   const [selectedMediaId, setSelectedMediaId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [profile, setProfile] = useState({ username: 'Usuario', avatar_url: '' });
 
   useEffect(() => {
     if (window.location.pathname.includes('update-password')) {
@@ -30,6 +32,34 @@ export default function App() {
       }
     });
   }, []);
+
+  useEffect(() => {
+    if (session?.user) {
+      fetchUserProfile();
+    }
+  }, [session]);
+
+  const fetchUserProfile = async () => {
+    if (!session?.user) return;
+    
+    const { data } = await supabase
+      .from('profiles')
+      .select('username, avatar_url')
+      .eq('id', session.user.id)
+      .maybeSingle();
+
+    if (data) {
+      setProfile({
+        username: data.username || session.user.email.split('@')[0],
+        avatar_url: data.avatar_url || ''
+      });
+    } else {
+      setProfile({
+        username: session.user.email.split('@')[0],
+        avatar_url: ''
+      });
+    }
+  };
 
   const handleLogout = async () => {
     setIsDropdownOpen(false);
@@ -54,6 +84,12 @@ export default function App() {
     setIsDropdownOpen(false);
   };
 
+  const navigateToSettings = () => {
+    setSelectedMediaId(null);
+    setCurrentView('settings');
+    setIsDropdownOpen(false);
+  };
+
   if (currentView === 'update-password') {
     return <UpdatePassword />;
   }
@@ -66,8 +102,6 @@ export default function App() {
     );
   }
 
-  const username = session?.user?.user_metadata?.username || session?.user?.email?.split('@')[0] || "Usuario";
-
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b border-gray-100 sticky top-0 z-50">
@@ -79,33 +113,65 @@ export default function App() {
             HAL<span className="text-blue-600">9000</span>
           </h1>
           
-          <div className="flex gap-4 items-center">
+          <div className="flex gap-3 sm:gap-4 items-center">
             <button 
               onClick={() => { setCurrentView('create'); setIsDropdownOpen(false); }} 
-              className="bg-blue-600 text-white px-5 py-2 rounded-full font-bold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg text-sm"
+              className="bg-blue-600 text-white px-4 sm:px-5 py-2 rounded-full font-bold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg text-xs sm:text-sm"
             >
               + Nueva Reseña
             </button>
 
             <div className="relative">
+              {/* DISEÑO MEJORADO: Botón puramente circular para el Avatar */}
               <button 
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-xl text-sm font-bold transition-all border border-gray-200"
+                className="flex items-center justify-center w-10 h-10 rounded-full focus:outline-none transition-all duration-200 border-2 border-transparent hover:border-blue-500 hover:shadow-md"
               >
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                {username}
-                <span className="text-xs text-gray-400 font-normal">{isDropdownOpen ? '▲' : '▼'}</span>
+                {profile.avatar_url ? (
+                  <img 
+                    src={profile.avatar_url} 
+                    alt="User Avatar" 
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-black uppercase tracking-wider shadow-inner">
+                    {profile.username[0]}
+                  </div>
+                )}
               </button>
 
               {isDropdownOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setIsDropdownOpen(false)}></div>
                   
-                  <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 py-2 origin-top-right transition-all">
-                    <div className="px-4 py-2 border-b border-gray-50">
-                      <p className="text-xs text-gray-400 font-medium">Conexión activa</p>
-                      <p className="text-sm font-bold text-gray-700 truncate">{session.user.email}</p>
+                  <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 py-2 origin-top-right transition-all">
+                    
+                    {/* CABECERA PREMIUM DEL DESPLEGABLE */}
+                    <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50 rounded-t-2xl flex items-center gap-3">
+                      {profile.avatar_url ? (
+                        <img 
+                          src={profile.avatar_url} 
+                          alt="User Avatar Large" 
+                          className="w-11 h-11 rounded-full object-cover border border-gray-200 shadow-sm"
+                        />
+                      ) : (
+                        <div className="w-11 h-11 rounded-full bg-blue-600 text-white flex items-center justify-center text-base font-black uppercase">
+                          {profile.username[0]}
+                        </div>
+                      )}
+                      <div className="overflow-hidden">
+                        <p className="text-sm font-black text-gray-900 truncate">{profile.username}</p>
+                        <p className="text-xs text-gray-400 truncate font-medium">{session.user.email}</p>
+                      </div>
                     </div>
+
+                    {/* MENÚ DE OPCIONES */}
+                    <button 
+                      onClick={navigateToSettings}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-bold flex items-center gap-2 transition-colors mt-1"
+                    >
+                      ⚙️ Configurar Perfil
+                    </button>
                     
                     <button 
                       onClick={navigateToMyReviews}
@@ -121,7 +187,7 @@ export default function App() {
                       ⏳ Películas pendientes
                     </button>
                     
-                    <div className="border-t border-gray-100 mt-1 pt-1">
+                    <div className="border-t border-gray-100 mt-2 pt-1.5">
                       <button 
                         onClick={handleLogout} 
                         className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-bold flex items-center gap-2 transition-colors"
@@ -165,6 +231,14 @@ export default function App() {
 
         {currentView === 'create' && (
           <CreateReviewPage onReviewCreated={navigateToDashboard} />
+        )}
+
+        {currentView === 'settings' && (
+          <ProfileSettings 
+            session={session} 
+            onBack={navigateToDashboard} 
+            onProfileUpdated={fetchUserProfile} 
+          />
         )}
       </main>
     </div>
