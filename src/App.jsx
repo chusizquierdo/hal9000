@@ -8,6 +8,10 @@ import ProfileSettings from './components/ProfileSettings';
 import Auth from './components/Auth';
 import UpdatePassword from './components/UpdatePassword';
 
+// NUEVOS COMPONENTES IMPORTADOS
+import AdminUserPanel from './components/AdminUserPanel';
+import UserLeaderboard from './components/UserLeaderboard';
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [currentView, setCurrentView] = useState('dashboard');
@@ -125,6 +129,20 @@ export default function App() {
     setIsDropdownOpen(false);
   };
 
+  // NUEVAS FUNCIONES DE NAVEGACIÓN PARA LOS COMPONENTES NUEVOS
+  const navigateToLeaderboard = () => {
+    setSelectedMediaId(null);
+    setCurrentView('leaderboard');
+    setIsDropdownOpen(false);
+  };
+
+  const navigateToAdminPanel = () => {
+    if (!isAdmin) return;
+    setSelectedMediaId(null);
+    setCurrentView('admin-panel');
+    setIsDropdownOpen(false);
+  };
+
   if (currentView === 'update-password') {
     return <UpdatePassword />;
   }
@@ -207,6 +225,19 @@ export default function App() {
                         <button onClick={navigateToWatchlist} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors">
                           ⏳ Películas pendientes
                         </button>
+
+                        {/* ACCESO AL RANKING PÚBLICO (Para usuarios logueados) */}
+                        <button onClick={navigateToLeaderboard} className="w-full text-left px-4 py-2.5 text-sm text-amber-600 hover:bg-amber-50 font-bold flex items-center gap-2 transition-colors border-t border-gray-100 pt-2">
+                          🏆 Ranking de Críticos
+                        </button>
+
+                        {/* ACCESO EXCLUSIVO PARA ADMINISTRADORES */}
+                        {isAdmin && (
+                          <button onClick={navigateToAdminPanel} className="w-full text-left px-4 py-2.5 text-sm text-purple-600 hover:bg-purple-50 font-black flex items-center gap-2 transition-colors border-t border-gray-100 pt-2">
+                            👑 Panel de Admin
+                          </button>
+                        )}
+
                         <div className="border-t border-gray-100 mt-2 pt-1.5">
                           <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-bold flex items-center gap-2 transition-colors">
                             🚪 Cerrar sesión
@@ -214,7 +245,12 @@ export default function App() {
                         </div>
                       </>
                     ) : (
-                      <div className="p-1 mt-1">
+                      <div className="p-1 mt-1 flex flex-col gap-1">
+                        {/* ACCESO AL RANKING PÚBLICO (Para invitados) */}
+                        <button onClick={navigateToLeaderboard} className="w-full text-left px-4 py-2.5 text-sm text-amber-600 hover:bg-amber-50 font-bold flex items-center gap-2 transition-colors rounded-xl">
+                          🏆 Ranking de Críticos
+                        </button>
+                        
                         <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm text-blue-600 bg-blue-50/50 hover:bg-blue-600 hover:text-white font-bold flex items-center gap-2 transition-colors rounded-xl">
                           🚪 Salir / Iniciar Sesión
                         </button>
@@ -257,6 +293,16 @@ export default function App() {
 
         {currentView === 'settings' && !session.isGuest && (
           <ProfileSettings session={session} onBack={navigateToDashboard} onProfileUpdated={fetchUserProfile} />
+        )}
+
+        {/* INYECCIÓN DE LA VISTA DEL RANKING PÚBLICO */}
+        {currentView === 'leaderboard' && (
+          <UserLeaderboard />
+        )}
+
+        {/* INYECCIÓN SEGURA DE LA VISTA DEL PANEL DE ADMINISTRACIÓN */}
+        {currentView === 'admin-panel' && (
+          <AdminUserPanel isAdmin={isAdmin} />
         )}
       </main>
     </div>

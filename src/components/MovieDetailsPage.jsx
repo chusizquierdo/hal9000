@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
+import ActorDetailsPage from './ActorDetailsPage';
 
 export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
   const [movieData, setMovieData] = useState(null);
@@ -21,6 +22,8 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
   const [supabaseItemId, setSupabaseItemId] = useState(null);
   const [trailerKey, setTrailerKey] = useState('');
   const [recommendations, setRecommendations] = useState([]);
+
+  const [selectedActorId, setSelectedActorId] = useState(null);
 
   useEffect(() => {
     const resolveInitialId = async () => {
@@ -70,7 +73,7 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
     try {
       const creditsRes = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/credits?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES`);
       const creditsData = await creditsRes.json();
-      setCast(creditsData.cast?.slice(0, 5) || []);
+      setCast(creditsData.cast?.slice(0, 12) || []);
 
       if (type === 'movie') {
         const movieDirector = creditsData.crew?.find(member => member.job === 'Director');
@@ -143,7 +146,6 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
     }
   };
 
-  // FUNCIÓN NUEVA: Permite al Administrador moderar y borrar comentarios inapropiados
   const handleDeleteUserReview = async (reviewId) => {
     const confirmed = window.confirm("⚠️ ACCIÓN DE ADMINISTRADOR:\n\n¿Seguro que quieres eliminar esta reseña de forma permanente?");
     if (!confirmed) return;
@@ -156,7 +158,7 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
     if (error) {
       alert("Error al borrar la reseña");
     } else {
-      fetchData(); // Recarga los comentarios y recalcula la nota media global de forma limpia
+      fetchData(); 
     }
   };
 
@@ -217,6 +219,11 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
     return hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
   };
 
+  const formatCurrency = (amount) => {
+    if (!amount || amount === 0) return 'No disponible';
+    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount);
+  };
+
   const translateTvStatus = (status) => {
     const statuses = {
       'Returning Series': 'En emisión',
@@ -227,6 +234,22 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
     };
     return statuses[status] || status || 'Desconocido';
   };
+
+  // MODIFICACIÓN: Pasamos la nueva prop 'onMediaClick' para gestionar el salto dinámico de películas
+  if (selectedActorId) {
+    return (
+      <ActorDetailsPage 
+        actorId={selectedActorId} 
+        onBack={() => setSelectedActorId(null)} 
+        onMediaClick={(tmdbId, mediaType) => {
+          setCurrentTmdbId(tmdbId);
+          setCurrentMediaType(mediaType);
+          setSelectedActorId(null); // Oculta la página de actor y carga la película nueva
+          window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll limpio hacia arriba
+        }}
+      />
+    );
+  }
 
   if (!movieData) return <div className="p-8 text-center text-gray-500 font-medium">Sincronizando ficha técnica premium...</div>;
 
@@ -279,10 +302,20 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
             </div>
 
             {currentMediaType === 'movie' ? (
-              <div>
-                <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wider">Duración</p>
-                <p className="text-gray-800 font-semibold mt-0.5">{formatRuntime(movieData.runtime)}</p>
-              </div>
+              <>
+                <div>
+                  <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wider">Duración</p>
+                  <p className="text-gray-800 font-semibold mt-0.5">{formatRuntime(movieData.runtime)}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wider">Presupuesto</p>
+                  <p className="text-gray-800 font-semibold mt-0.5">{formatCurrency(movieData.budget)}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wider">Recaudación Global</p>
+                  <p className="text-green-600 font-bold mt-0.5">{formatCurrency(movieData.revenue)}</p>
+                </div>
+              </>
             ) : (
               <>
                 <div>
@@ -300,11 +333,39 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
               </>
             )}
 
-            <div className="col-span-2 sm:col-span-3 border-t border-gray-200/60 pt-2.5 mt-0.5">
-              <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wider">Reparto Principal</p>
-              <p className="text-gray-800 font-semibold mt-0.5">
-                {cast.length > 0 ? cast.map(actor => actor.name).join(', ') : 'Información no disponible'}
-              </p>
+            <div className="col-span-2 sm:col-span-3 border-t border-gray-200/60 pt-3 mt-1">
+              <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wider mb-3">Reparto Principal</p>
+              {cast.length > 0 ? (
+                <div className="flex overflow-x-auto gap-4 pb-2 scrollbar-thin scrollbar-thumb-gray-200 snap-x">
+                  {cast.map(actor => (
+                    <div 
+                      key={actor.id} 
+                      onClick={() => setSelectedActorId(actor.id)} 
+                      className="w-24 shrink-0 cursor-pointer group snap-start"
+                    >
+                      <div className="h-32 w-full rounded-xl overflow-hidden shadow-sm border border-gray-100 bg-gray-100">
+                        {actor.profile_path ? (
+                          <img 
+                            src={`https://image.tmdb.org/t/p/w200${actor.profile_path}`} 
+                            alt={actor.name} 
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center p-2 text-center text-[10px] text-gray-400 font-bold uppercase">Sin Foto</div>
+                        )}
+                      </div>
+                      <p className="text-[11px] font-bold text-gray-800 mt-1.5 truncate group-hover:text-blue-600 transition-colors">
+                        {actor.name}
+                      </p>
+                      <p className="text-[9px] text-gray-400 truncate font-medium">
+                        {actor.character}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-400 text-xs italic font-medium">Información sobre el elenco no disponible.</p>
+              )}
             </div>
           </div>
 
@@ -398,7 +459,6 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
                 <p className="text-gray-600 text-sm mt-1">{"comment" in r ? r.comment : ''}</p>
               </div>
               
-              {/* ACCIÓN DE MODERACIÓN: Si eres admin, puedes borrar cualquier review del listado */}
               {isAdmin && (
                 <button 
                   onClick={() => handleDeleteUserReview(r.id)}
