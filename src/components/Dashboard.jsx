@@ -3,6 +3,8 @@ import { supabase } from '../supabaseClient';
 
 export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, isAdmin }) {
   const [items, setItems] = useState([]);
+  const [upcoming, setUpcoming] = useState([]);
+  const [activeTab, setActiveTab] = useState('feed');
   const [sortBy, setSortBy] = useState('recent');
   const [filterType, setFilterType] = useState('all');
   const [filterGenre, setFilterGenre] = useState('all');
@@ -12,6 +14,7 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
 
   useEffect(() => {
     fetchMediaWithData();
+    fetchUpcoming();
   }, [userIdFilter]);
 
   const fetchMediaWithData = async () => {
@@ -43,6 +46,31 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
         return { ...m, avg, firstReview: userReview || sortedReviews[0], year, title, genres, hasUserReview: userIdFilter ? !!userReview : true };
       }));
       setItems(itemsWithData);
+    }
+  };
+
+  const fetchUpcoming = async () => {
+    try {
+      const today = new Date();
+      const todayStr = today.toISOString().split('T')[0];
+      const endOfYear = `${today.getFullYear()}-12-31`;
+      let allResults = [];
+      
+      for (let i = 1; i <= 10; i++) {
+        const url = `https://api.themoviedb.org/3/discover/movie?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES&region=ES&sort_by=release_date.asc&release_date.gte=${todayStr}&release_date.lte=${endOfYear}&page=${i}&with_release_type=3|2`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.results) {
+          const validResults = data.results.filter(m => m.release_date && new Date(m.release_date) >= today);
+          allResults = [...allResults, ...validResults];
+        }
+      }
+      
+      const uniqueUpcoming = Array.from(new Map(allResults.map(m => [m.id, m])).values());
+      const sorted = uniqueUpcoming.sort((a, b) => new Date(a.release_date) - new Date(b.release_date));
+      setUpcoming(sorted);
+    } catch (e) { 
+      console.error("Error al cargar estrenos:", e); 
     }
   };
 
@@ -91,66 +119,115 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
       )}
 
       <div className="flex flex-col gap-4 mb-8">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
-            {userIdFilter ? 'Tu Biblioteca' : 'Feed de Reseñas'}
-          </h1>
-          <div className="flex flex-wrap gap-3">
-            <select className="bg-white border border-gray-200 text-gray-700 py-2 px-4 rounded-xl shadow-sm outline-none" value={filterType} onChange={(e) => {setFilterType(e.target.value); setPage(0);}}>
-              <option value="all">Todo el contenido</option>
-              <option value="movie">Películas</option>
-              <option value="tv">Series</option>
-            </select>
-            <select className="bg-white border border-gray-200 text-gray-700 py-2 px-4 rounded-xl shadow-sm outline-none" value={filterGenre} onChange={(e) => {setFilterGenre(e.target.value); setPage(0);}}>
-              <option value="all">Todos los géneros</option>
-              {allGenres.map(g => <option key={g} value={g}>{g}</option>)}
-            </select>
-            <select className="bg-white border border-gray-200 text-gray-700 py-2 px-4 rounded-xl shadow-sm outline-none" value={sortBy} onChange={(e) => {setSortBy(e.target.value); setPage(0);}}>
-              <option value="recent">Última reseña</option>
-              <option value="year_new">Año (Más reciente)</option>
-              <option value="year_old">Año (Más antiguo)</option>
-              <option value="rating">Mejor puntuación</option>
-              <option value="title">Alfabético</option>
-            </select>
-          </div>
+        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
+          {userIdFilter ? 'Tu Biblioteca' : 'Feed de Reseñas'}
+        </h1>
+        
+        <div className="flex gap-6 border-b border-gray-200">
+          <button onClick={() => setActiveTab('feed')} className={`pb-2 font-bold transition-colors ${activeTab === 'feed' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Biblioteca</button>
+          <button onClick={() => setActiveTab('upcoming')} className={`pb-2 font-bold transition-colors ${activeTab === 'upcoming' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Próximos Estrenos</button>
         </div>
-        <input type="text" placeholder="Buscar título..." className="w-full p-3 border border-gray-200 rounded-xl shadow-sm outline-none" value={searchTerm} onChange={(e) => {setSearchTerm(e.target.value); setPage(0);}} />
+
+        {activeTab === 'feed' && (
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mt-4">
+            <div className="flex flex-wrap gap-3">
+              <select className="bg-white border border-gray-200 text-gray-700 py-2 px-4 rounded-xl shadow-sm outline-none" value={filterType} onChange={(e) => {setFilterType(e.target.value); setPage(0);}}>
+                <option value="all">Todo el contenido</option>
+                <option value="movie">Películas</option>
+                <option value="tv">Series</option>
+              </select>
+              <select className="bg-white border border-gray-200 text-gray-700 py-2 px-4 rounded-xl shadow-sm outline-none" value={filterGenre} onChange={(e) => {setFilterGenre(e.target.value); setPage(0);}}>
+                <option value="all">Todos los géneros</option>
+                {allGenres.map(g => <option key={g} value={g}>{g}</option>)}
+              </select>
+              <select className="bg-white border border-gray-200 text-gray-700 py-2 px-4 rounded-xl shadow-sm outline-none" value={sortBy} onChange={(e) => {setSortBy(e.target.value); setPage(0);}}>
+                <option value="recent">Última reseña</option>
+                <option value="year_new">Año (Más reciente)</option>
+                <option value="year_old">Año (Más antiguo)</option>
+                <option value="rating">Mejor puntuación</option>
+                <option value="title">Alfabético</option>
+              </select>
+            </div>
+            <input type="text" placeholder="Buscar título..." className="w-full md:w-64 p-2 border border-gray-200 rounded-xl shadow-sm outline-none" value={searchTerm} onChange={(e) => {setSearchTerm(e.target.value); setPage(0);}} />
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {paginatedItems.map(m => (
-          <div key={m.id} className="group bg-white rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-300 border border-gray-100 cursor-pointer flex flex-col relative" onClick={() => onViewMovie(m.id)}>
-            <div className="relative h-64 overflow-hidden rounded-t-2xl">
-              <img src={m.poster_url} alt={m.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-              <div className="absolute top-3 left-3 flex gap-1.5 items-center">
-                <span className="bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase">
-                  {m.media_type === 'tv' ? 'Serie' : 'Película'}
-                </span>
+      {activeTab === 'feed' ? (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {paginatedItems.map(m => (
+              <div key={m.id} className="group bg-white rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-300 border border-gray-100 cursor-pointer flex flex-col relative" onClick={() => onViewMovie(m.id)}>
+                <div className="relative h-64 overflow-hidden rounded-t-2xl">
+                  <img src={m.poster_url} alt={m.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <div className="absolute top-3 left-3 flex gap-1.5 items-center">
+                    <span className="bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase">{m.media_type === 'tv' ? 'Serie' : 'Película'}</span>
+                  </div>
+                  {isAdmin && (
+                    <button onClick={(e) => handleDeleteMediaItem(m.id, m.title, e)} className="absolute top-3 right-3 bg-black/40 hover:bg-red-600/90 w-8 h-8 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-10">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-4 h-4 text-white"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                    </button>
+                  )}
+                </div>
+                <div className="p-5 flex-grow">
+                  <h2 className="font-bold text-gray-900 text-lg truncate">{m.title}</h2>
+                  <p className="text-gray-500 text-sm mb-1">{m.year > 0 ? m.year : 'N/A'}</p>
+                  <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wide mb-3">{m.genres?.slice(0, 2).join(' • ')}</p>
+                  {m.firstReview && <p className="text-xs text-gray-400 italic mb-4 line-clamp-2 border-t pt-3">"{m.firstReview.comment}"</p>}
+                  <div className="flex items-center gap-1 font-bold text-yellow-500 mt-auto">★ <span className="text-gray-900">{m.avg > 0 ? m.avg.toFixed(1) : '0.0'}</span></div>
+                </div>
               </div>
-              {isAdmin && (
-                <button onClick={(e) => handleDeleteMediaItem(m.id, m.title, e)} className="absolute top-3 right-3 bg-black/40 hover:bg-red-600/90 w-8 h-8 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-10">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-4 h-4 text-white"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
-                </button>
-              )}
-            </div>
-            <div className="p-5 flex-grow">
-              <h2 className="font-bold text-gray-900 text-lg truncate">{m.title}</h2>
-              <p className="text-gray-500 text-sm mb-1">{m.year > 0 ? m.year : 'N/A'}</p>
-              <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wide mb-3">{m.genres?.slice(0, 2).join(' • ')}</p>
-              {m.firstReview && (
-                <p className="text-xs text-gray-400 italic mb-4 line-clamp-2 border-t pt-3">"{m.firstReview.comment}"</p>
-              )}
-              <div className="flex items-center gap-1 font-bold text-yellow-500 mt-auto">★ <span className="text-gray-900">{m.avg > 0 ? m.avg.toFixed(1) : '0.0'}</span></div>
-            </div>
+            ))}
           </div>
-        ))}
-      </div>
-      
-      <div className="flex justify-between items-center mt-12 pt-6 border-t border-gray-100">
-        <button disabled={page === 0} onClick={() => setPage(page - 1)} className="px-6 py-2 bg-gray-100 rounded-xl font-bold hover:bg-gray-200">Anterior</button>
-        <span className="font-bold text-gray-500">Página {page + 1}</span>
-        <button disabled={(page + 1) * PAGE_SIZE >= filteredAndSortedItems.length} onClick={() => setPage(page + 1)} className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700">Siguiente</button>
-      </div>
+          <div className="flex justify-between items-center mt-12 pt-6 border-t border-gray-100">
+            <button disabled={page === 0} onClick={() => setPage(page - 1)} className="px-6 py-2 bg-gray-100 rounded-xl font-bold hover:bg-gray-200">Anterior</button>
+            <span className="font-bold text-gray-500">Página {page + 1}</span>
+            <button disabled={(page + 1) * PAGE_SIZE >= filteredAndSortedItems.length} onClick={() => setPage(page + 1)} className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700">Siguiente</button>
+          </div>
+        </>
+      ) : (
+        <div className="space-y-12">
+          {Object.entries(
+            upcoming.reduce((acc, m) => {
+              const date = new Date(m.release_date);
+              const monthYear = date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+              const capitalized = monthYear.charAt(0).toUpperCase() + monthYear.slice(1);
+              if (!acc[capitalized]) acc[capitalized] = [];
+              acc[capitalized].push(m);
+              return acc;
+            }, {})
+          ).map(([month, movies]) => (
+            <div key={month}>
+              <h2 className="text-2xl font-black text-gray-900 mb-6 uppercase tracking-wider">{month}</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                {movies.map(m => (
+                  <div key={m.id} className="group bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden hover:shadow-lg transition-shadow">
+                    <div className="relative h-64 overflow-hidden bg-gray-100 flex items-center justify-center">
+                      {m.poster_path ? (
+                        <img src={`https://image.tmdb.org/t/p/w500${m.poster_path}`} alt={m.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="p-4 text-center">
+                          <p className="text-gray-400 font-bold text-xs italic">Sin imagen disponible</p>
+                          <p className="text-gray-600 font-bold mt-2 text-sm">{m.title}</p>
+                        </div>
+                      )}
+                      <div className="absolute top-3 left-3 bg-blue-600 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg">
+                        {new Date(m.release_date).getDate()}
+                      </div>
+                    </div>
+                    <div className="p-4">
+                      <h3 className="font-bold text-gray-900 truncate">{m.title}</h3>
+                      <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase">
+                        {new Date(m.release_date).toLocaleDateString('es-ES', { weekday: 'short' })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
