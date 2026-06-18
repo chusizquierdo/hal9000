@@ -235,7 +235,6 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
     return statuses[status] || status || 'Desconocido';
   };
 
-  // MODIFICACIÓN: Pasamos la nueva prop 'onMediaClick' para gestionar el salto dinámico de películas
   if (selectedActorId) {
     return (
       <ActorDetailsPage 
@@ -244,8 +243,8 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
         onMediaClick={(tmdbId, mediaType) => {
           setCurrentTmdbId(tmdbId);
           setCurrentMediaType(mediaType);
-          setSelectedActorId(null); // Oculta la página de actor y carga la película nueva
-          window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll limpio hacia arriba
+          setSelectedActorId(null);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />
     );
@@ -258,6 +257,10 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
     : movieData.first_air_date 
       ? movieData.first_air_date.substring(0, 4) 
       : 'N/A';
+
+  // Lógica de control para bloquear puntuaciones si el contenido no se ha estrenado todavía
+  const rawReleaseDate = movieData.release_date || movieData.first_air_date;
+  const isNotReleasedYet = rawReleaseDate ? new Date(rawReleaseDate) > new Date() : false;
 
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white rounded-3xl shadow-sm border border-gray-100">
@@ -420,32 +423,46 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
       
       <h2 className="text-2xl font-bold mb-4">Reseñas de la comunidad</h2>
       <div className="p-6 bg-gray-50 rounded-2xl mb-8 border border-gray-100">
-        <h3 className="font-bold text-lg mb-4">{userReview && !isEditing ? 'Tu reseña' : 'Escribe tu reseña'}</h3>
-        {userReview && !isEditing ? (
-          <div>
-            <p className="text-yellow-500 font-black text-xl">{userReview.rating} ★</p>
-            <p className="italic mt-2 text-gray-700">"{userReview.comment}"</p>
-            <button onClick={() => setIsEditing(true)} className="text-blue-600 mt-3 font-bold text-sm underline hover:text-blue-700">Editar mi reseña</button>
+        {isNotReleasedYet ? (
+          <div className="text-center py-6">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-amber-50 text-amber-600 mb-3 border border-amber-100 text-xl">
+              ⏳
+            </div>
+            <h3 className="font-bold text-gray-800 text-base">Evaluaciones Bloqueadas</h3>
+            <p className="text-gray-500 text-xs mt-1 max-w-md mx-auto leading-relaxed">
+              Este título tiene fijada su fecha de lanzamiento para el <strong>{new Date(rawReleaseDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>. El formulario para puntuar y redactar tu reseña se activará automáticamente ese día.
+            </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-4">
-            <textarea className="w-full p-4 border border-gray-200 rounded-xl resize-none outline-none focus:border-blue-500 bg-white" placeholder="¿Qué te ha parecido? Cuéntale a la comunidad tus impresiones..." value={comment} onChange={e => setComment(e.target.value)} />
-            <div>
-              <label className="font-bold text-sm block mb-2 text-gray-600">Tu puntuación: <span className="text-blue-600 font-black">{rating.toFixed(1)} / 10</span></label>
-              <div className="flex flex-wrap gap-1">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((star) => (
-                  <div key={star} className="relative flex text-2xl">
-                    <button type="button" onClick={() => setRating(star - 0.5)} className="absolute left-0 top-0 z-10 h-full w-1/2 opacity-0"/>
-                    <button type="button" onClick={() => setRating(star)} className="absolute right-0 top-0 z-10 h-full w-1/2 opacity-0"/>
-                    <span className={rating >= star ? 'text-yellow-400' : rating === star - 0.5 ? 'text-yellow-400/50' : 'text-gray-200'}>★</span>
-                  </div>
-                ))}
+          <>
+            <h3 className="font-bold text-lg mb-4">{userReview && !isEditing ? 'Tu reseña' : 'Escribe tu reseña'}</h3>
+            {userReview && !isEditing ? (
+              <div>
+                <p className="text-yellow-500 font-black text-xl">{userReview.rating} ★</p>
+                <p className="italic mt-2 text-gray-700">"{userReview.comment}"</p>
+                <button onClick={() => setIsEditing(true)} className="text-blue-600 mt-3 font-bold text-sm underline hover:text-blue-700">Editar mi reseña</button>
               </div>
-            </div>
-            <button onClick={handleSaveReview} className="bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-sm">
-              {supabaseItemId ? 'Guardar reseña' : 'Publicar y registrar título'}
-            </button>
-          </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                <textarea className="w-full p-4 border border-gray-200 rounded-xl resize-none outline-none focus:border-blue-500 bg-white" placeholder="¿Qué te ha parecido? Cuéntale a la comunidad tus impresiones..." value={comment} onChange={e => setComment(e.target.value)} />
+                <div>
+                  <label className="font-bold text-sm block mb-2 text-gray-600">Tu puntuación: <span className="text-blue-600 font-black">{rating.toFixed(1)} / 10</span></label>
+                  <div className="flex flex-wrap gap-1">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((star) => (
+                      <div key={star} className="relative flex text-2xl">
+                        <button type="button" onClick={() => setRating(star - 0.5)} className="absolute left-0 top-0 z-10 h-full w-1/2 opacity-0"/>
+                        <button type="button" onClick={() => setRating(star)} className="absolute right-0 top-0 z-10 h-full w-1/2 opacity-0"/>
+                        <span className={rating >= star ? 'text-yellow-400' : rating === star - 0.5 ? 'text-yellow-400/50' : 'text-gray-200'}>★</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <button onClick={handleSaveReview} className="bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-sm">
+                  {supabaseItemId ? 'Guardar reseña' : 'Publicar y registrar título'}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
 

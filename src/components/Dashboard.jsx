@@ -3,8 +3,6 @@ import { supabase } from '../supabaseClient';
 import Trailers from './Trailers'; 
 import Upcoming from './Upcoming';
 import Rankings from './Rankings';
-
-// Importación del ranking de críticos relacional
 import UserLeaderboard from './UserLeaderboard';
 
 export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, isAdmin }) {
@@ -113,11 +111,8 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
         
         <div className="flex gap-6 border-b border-gray-200 overflow-x-auto scrollbar-none">
           <button onClick={() => setActiveTab('feed')} className={`pb-2 font-bold whitespace-nowrap transition-colors ${activeTab === 'feed' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Biblioteca</button>
-          
           <button onClick={() => setActiveTab('rankings')} className={`pb-2 font-bold whitespace-nowrap transition-colors ${activeTab === 'rankings' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Tops</button>
-          
           <button onClick={() => setActiveTab('leaderboard')} className={`pb-2 font-bold whitespace-nowrap transition-colors ${activeTab === 'leaderboard' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Ranking de Críticos</button>
-          
           <button onClick={() => setActiveTab('upcoming')} className={`pb-2 font-bold whitespace-nowrap transition-colors ${activeTab === 'upcoming' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Próximos Estrenos</button>
           <button onClick={() => setActiveTab('trailers')} className={`pb-2 font-bold whitespace-nowrap transition-colors ${activeTab === 'trailers' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Próximos Trailers</button>
         </div>
@@ -181,12 +176,12 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
           </div>
         </div>
       ) : activeTab === 'rankings' ? (
-        <Rankings />
+        <Rankings onViewMovie={onViewMovie} />
       ) : activeTab === 'leaderboard' ? (
-        /* MODIFICACIÓN: Pasamos onViewMovie aquí */
         <UserLeaderboard onViewMovie={onViewMovie} />
       ) : activeTab === 'upcoming' ? (
-        <Upcoming />
+        /* AQUÍ ESTÁ EL CAMBIO: Ahora pasamos correctamente la prop para habilitar la navegación */
+        <Upcoming onViewMovie={onViewMovie} />
       ) : (
         <Trailers />
       )}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-export default function Upcoming() {
+export default function Upcoming({ onViewMovie }) {
   const [upcoming, setUpcoming] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -55,10 +55,14 @@ export default function Upcoming() {
           <h2 className="text-2xl font-black text-gray-900 mb-6 uppercase tracking-wider">{month}</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
             {movies.map(m => (
-              <div key={m.id} className="group bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden hover:shadow-lg transition-shadow">
+              <div 
+                key={m.id} 
+                onClick={() => onViewMovie && onViewMovie(m.id)}
+                className="group bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden hover:shadow-lg hover:border-gray-200 transition-all cursor-pointer"
+              >
                 <div className="relative h-64 overflow-hidden bg-gray-100 flex items-center justify-center">
                   {m.poster_path ? (
-                    <img src={`https://image.tmdb.org/t/p/w500${m.poster_path}`} alt={m.title} className="w-full h-full object-cover" />
+                    <img src={`https://image.tmdb.org/t/p/w500${m.poster_path}`} alt={m.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   ) : (
                     <div className="p-4 text-center">
                       <p className="text-gray-400 font-bold text-xs italic">Sin imagen disponible</p>
@@ -70,7 +74,7 @@ export default function Upcoming() {
                   </div>
                 </div>
                 <div className="p-4">
-                  <h3 className="font-bold text-gray-900 truncate">{m.title}</h3>
+                  <h3 className="font-bold text-gray-900 truncate group-hover:text-blue-600 transition-colors">{m.title}</h3>
                   <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase">
                     {new Date(m.release_date).toLocaleDateString('es-ES', { weekday: 'short' })}
                   </p>
