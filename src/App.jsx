@@ -11,16 +11,17 @@ import UpdatePassword from './components/UpdatePassword';
 // NUEVOS COMPONENTES IMPORTADOS
 import AdminUserPanel from './components/AdminUserPanel';
 import UserLeaderboard from './components/UserLeaderboard';
+import NavbarTabs from './components/NavbarTabs';
 
 export default function App() {
   const [session, setSession] = useState(null);
   const [currentView, setCurrentView] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('feed');
   const [selectedMediaId, setSelectedMediaId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [profile, setProfile] = useState({ username: 'Usuario', avatar_url: '' });
   
-  // NUEVO: Estado reactivo para almacenar si el usuario logueado tiene el rol de administrador
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
@@ -54,7 +55,6 @@ export default function App() {
   const fetchUserProfile = async () => {
     if (!session?.user) return;
     
-    // MODIFICACIÓN: Añadimos 'role' a la consulta select de tu tabla 'profiles'
     const { data } = await supabase
       .from('profiles')
       .select('username, avatar_url, role')
@@ -66,7 +66,6 @@ export default function App() {
         username: data.username || session.user.email.split('@')[0],
         avatar_url: data.avatar_url || ''
       });
-      // Evaluamos dinámicamente si la columna role contiene exactamente 'admin'
       setIsAdmin(data.role === 'admin');
     } else {
       setProfile({
@@ -86,24 +85,26 @@ export default function App() {
       username: 'Invitado',
       avatar_url: ''
     });
-    setIsAdmin(false); // Un invitado nunca será administrador
+    setIsAdmin(false);
     setCurrentView('dashboard');
   };
 
   const handleLogout = async () => {
     setIsDropdownOpen(false);
-    setIsAdmin(false); // Limpieza de seguridad al salir
+    setIsAdmin(false);
     if (session?.isGuest) {
       setSession(null);
     } else {
       await supabase.auth.signOut();
       setSession(null);
     }
+    setActiveTab('feed');
     setCurrentView('dashboard');
   };
 
   const navigateToDashboard = () => {
     setSelectedMediaId(null);
+    setActiveTab('feed');
     setCurrentView('dashboard');
     setRefreshKey(prev => prev + 1);
   };
@@ -111,6 +112,7 @@ export default function App() {
   const navigateToMyReviews = () => {
     if (session?.isGuest) return;
     setSelectedMediaId(null);
+    setActiveTab('feed');
     setCurrentView('my-reviews');
     setIsDropdownOpen(false);
   };
@@ -129,18 +131,17 @@ export default function App() {
     setIsDropdownOpen(false);
   };
 
-  // NUEVAS FUNCIONES DE NAVEGACIÓN PARA LOS COMPONENTES NUEVOS
-  const navigateToLeaderboard = () => {
-    setSelectedMediaId(null);
-    setCurrentView('leaderboard');
-    setIsDropdownOpen(false);
-  };
-
   const navigateToAdminPanel = () => {
     if (!isAdmin) return;
     setSelectedMediaId(null);
     setCurrentView('admin-panel');
     setIsDropdownOpen(false);
+  };
+
+  const handleTabChange = (tabName) => {
+    setActiveTab(tabName);
+    setSelectedMediaId(null);
+    setCurrentView('dashboard');
   };
 
   if (currentView === 'update-password') {
@@ -164,7 +165,6 @@ export default function App() {
             onClick={navigateToDashboard}
           >
             HAL<span className="text-blue-600">9000</span>
-            {/* Si eres admin en la base de datos, verás este distintivo rojo */}
             {isAdmin && <span className="text-[10px] bg-red-100 text-red-600 font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wide">Admin</span>}
           </h1>
           
@@ -226,12 +226,6 @@ export default function App() {
                           ⏳ Películas pendientes
                         </button>
 
-                        {/* ACCESO AL RANKING PÚBLICO (Para usuarios logueados) */}
-                        <button onClick={navigateToLeaderboard} className="w-full text-left px-4 py-2.5 text-sm text-amber-600 hover:bg-amber-50 font-bold flex items-center gap-2 transition-colors border-t border-gray-100 pt-2">
-                          🏆 Ranking de Críticos
-                        </button>
-
-                        {/* ACCESO EXCLUSIVO PARA ADMINISTRADORES */}
                         {isAdmin && (
                           <button onClick={navigateToAdminPanel} className="w-full text-left px-4 py-2.5 text-sm text-purple-600 hover:bg-purple-50 font-black flex items-center gap-2 transition-colors border-t border-gray-100 pt-2">
                             👑 Panel de Admin
@@ -246,11 +240,6 @@ export default function App() {
                       </>
                     ) : (
                       <div className="p-1 mt-1 flex flex-col gap-1">
-                        {/* ACCESO AL RANKING PÚBLICO (Para invitados) */}
-                        <button onClick={navigateToLeaderboard} className="w-full text-left px-4 py-2.5 text-sm text-amber-600 hover:bg-amber-50 font-bold flex items-center gap-2 transition-colors rounded-xl">
-                          🏆 Ranking de Críticos
-                        </button>
-                        
                         <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm text-blue-600 bg-blue-50/50 hover:bg-blue-600 hover:text-white font-bold flex items-center gap-2 transition-colors rounded-xl">
                           🚪 Salir / Iniciar Sesión
                         </button>
@@ -264,15 +253,18 @@ export default function App() {
         </div>
       </nav>
 
+      <NavbarTabs activeTab={activeTab} onTabChange={handleTabChange} />
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {currentView === 'dashboard' && (
-          <Dashboard key={refreshKey} isAdmin={isAdmin} onViewMovie={(id) => { setSelectedMediaId(id); setCurrentView('details'); }} />
+          <Dashboard key={refreshKey} isAdmin={isAdmin} activeTab={activeTab} onViewMovie={(id) => { setSelectedMediaId(id); setCurrentView('details'); }} />
         )}
         
         {currentView === 'my-reviews' && !session.isGuest && (
           <Dashboard 
             key="my-library" 
             isAdmin={isAdmin}
+            activeTab={activeTab}
             userIdFilter={session.user.id} 
             onViewMovie={(id) => { setSelectedMediaId(id); setCurrentView('details'); }} 
             onBack={navigateToDashboard} 
@@ -295,12 +287,10 @@ export default function App() {
           <ProfileSettings session={session} onBack={navigateToDashboard} onProfileUpdated={fetchUserProfile} />
         )}
 
-        {/* INYECCIÓN DE LA VISTA DEL RANKING PÚBLICO */}
         {currentView === 'leaderboard' && (
           <UserLeaderboard />
         )}
 
-        {/* INYECCIÓN SEGURA DE LA VISTA DEL PANEL DE ADMINISTRACIÓN */}
         {currentView === 'admin-panel' && (
           <AdminUserPanel isAdmin={isAdmin} />
         )}

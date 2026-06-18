@@ -5,9 +5,8 @@ import Upcoming from './Upcoming';
 import Rankings from './Rankings';
 import UserLeaderboard from './UserLeaderboard';
 
-export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, isAdmin }) {
+export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, isAdmin, activeTab }) {
   const [items, setItems] = useState([]);
-  const [activeTab, setActiveTab] = useState('feed');
   const [sortBy, setSortBy] = useState('recent');
   const [filterType, setFilterType] = useState('all');
   const [filterGenre, setFilterGenre] = useState('all');
@@ -95,7 +94,7 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
   const paginatedItems = filteredAndSortedItems.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-4">
+    <div className="max-w-7xl mx-auto px-4 py-0">
       {userIdFilter && onBack && (
         <div className="mb-4">
           <button onClick={onBack} className="group inline-flex items-center gap-2 bg-white text-gray-600 hover:text-blue-600 px-4 py-2 rounded-xl text-xs font-bold border border-gray-200 shadow-sm hover:shadow transition-all">
@@ -105,20 +104,12 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
       )}
 
       <div className="flex flex-col gap-4 mb-8">
-        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
-          {userIdFilter ? 'Tu Biblioteca' : 'Feed de Reseñas'}
+        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight mt-2">
+          {userIdFilter ? 'Tu Biblioteca' : activeTab === 'feed' ? 'Feed de Reseñas' : activeTab === 'rankings' ? 'Mejores Valoradas' : activeTab === 'leaderboard' ? 'Ranking de Críticos' : activeTab === 'upcoming' ? 'Próximos Estrenos' : 'Próximos Tráilers'}
         </h1>
-        
-        <div className="flex gap-6 border-b border-gray-200 overflow-x-auto scrollbar-none">
-          <button onClick={() => setActiveTab('feed')} className={`pb-2 font-bold whitespace-nowrap transition-colors ${activeTab === 'feed' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Biblioteca</button>
-          <button onClick={() => setActiveTab('rankings')} className={`pb-2 font-bold whitespace-nowrap transition-colors ${activeTab === 'rankings' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Tops</button>
-          <button onClick={() => setActiveTab('leaderboard')} className={`pb-2 font-bold whitespace-nowrap transition-colors ${activeTab === 'leaderboard' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Ranking de Críticos</button>
-          <button onClick={() => setActiveTab('upcoming')} className={`pb-2 font-bold whitespace-nowrap transition-colors ${activeTab === 'upcoming' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Próximos Estrenos</button>
-          <button onClick={() => setActiveTab('trailers')} className={`pb-2 font-bold whitespace-nowrap transition-colors ${activeTab === 'trailers' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Próximos Trailers</button>
-        </div>
 
         {activeTab === 'feed' && (
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mt-4">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex flex-wrap gap-3">
               <select className="bg-white border border-gray-200 text-gray-700 py-2 px-4 rounded-xl shadow-sm outline-none" value={filterType} onChange={(e) => {setFilterType(e.target.value); setPage(0);}}>
                 <option value="all">Todo el contenido</option>
@@ -180,7 +171,6 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
       ) : activeTab === 'leaderboard' ? (
         <UserLeaderboard onViewMovie={onViewMovie} />
       ) : activeTab === 'upcoming' ? (
-        /* AQUÍ ESTÁ EL CAMBIO: Ahora pasamos correctamente la prop para habilitar la navegación */
         <Upcoming onViewMovie={onViewMovie} />
       ) : (
         <Trailers />
