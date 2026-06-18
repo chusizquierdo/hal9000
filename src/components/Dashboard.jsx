@@ -4,6 +4,9 @@ import Trailers from './Trailers';
 import Upcoming from './Upcoming';
 import Rankings from './Rankings';
 
+// NUEVA IMPORTACIÓN: Traemos el ranking real conectado a la base de datos
+import UserLeaderboard from './UserLeaderboard';
+
 export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, isAdmin }) {
   const [items, setItems] = useState([]);
   const [activeTab, setActiveTab] = useState('feed');
@@ -108,11 +111,16 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
           {userIdFilter ? 'Tu Biblioteca' : 'Feed de Reseñas'}
         </h1>
         
-        <div className="flex gap-6 border-b border-gray-200">
-          <button onClick={() => setActiveTab('feed')} className={`pb-2 font-bold transition-colors ${activeTab === 'feed' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Biblioteca</button>
-          <button onClick={() => setActiveTab('rankings')} className={`pb-2 font-bold transition-colors ${activeTab === 'rankings' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Rankings</button>
-          <button onClick={() => setActiveTab('upcoming')} className={`pb-2 font-bold transition-colors ${activeTab === 'upcoming' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Próximos Estrenos</button>
-          <button onClick={() => setActiveTab('trailers')} className={`pb-2 font-bold transition-colors ${activeTab === 'trailers' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Próximos Trailers</button>
+        <div className="flex gap-6 border-b border-gray-200 overflow-x-auto scrollbar-none">
+          <button onClick={() => setActiveTab('feed')} className={`pb-2 font-bold whitespace-nowrap transition-colors ${activeTab === 'feed' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Biblioteca</button>
+          
+          {/* MODIFICACIÓN: El botón ahora se llama Tops */}
+          <button onClick={() => setActiveTab('rankings')} className={`pb-2 font-bold whitespace-nowrap transition-colors ${activeTab === 'rankings' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Tops</button>
+          
+          <button onClick={() => setActiveTab('leaderboard')} className={`pb-2 font-bold whitespace-nowrap transition-colors ${activeTab === 'leaderboard' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Ranking de Críticos</button>
+          
+          <button onClick={() => setActiveTab('upcoming')} className={`pb-2 font-bold whitespace-nowrap transition-colors ${activeTab === 'upcoming' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Próximos Estrenos</button>
+          <button onClick={() => setActiveTab('trailers')} className={`pb-2 font-bold whitespace-nowrap transition-colors ${activeTab === 'trailers' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Próximos Trailers</button>
         </div>
 
         {activeTab === 'feed' && (
@@ -175,6 +183,8 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
         </div>
       ) : activeTab === 'rankings' ? (
         <Rankings />
+      ) : activeTab === 'leaderboard' ? (
+        <UserLeaderboard />
       ) : activeTab === 'upcoming' ? (
         <Upcoming />
       ) : (
