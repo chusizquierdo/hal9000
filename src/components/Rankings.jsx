@@ -1,0 +1,193 @@
+import { useEffect, useState } from 'react';
+
+// Mapa unificado de IDs para mostrar los nombres de los géneros en los chips de la lista
+const GENRE_MAP = {
+  28: "Acción", 12: "Aventura", 16: "Animación", 35: "Comedia", 80: "Crimen",
+  99: "Documental", 18: "Drama", 10751: "Familiar", 14: "Fantasía", 36: "Historia",
+  27: "Terror", 10402: "Música", 9648: "Misterio", 10749: "Romance", 878: "Ciencia Ficción",
+  10770: "Película de TV", 53: "Suspense", 10752: "Bélica", 37: "Western",
+  10759: "Acción y Aventura", 10762: "Infantil", 10763: "Noticias", 10764: "Reality",
+  10765: "Sci-Fi y Fantasía", 10766: "Telenovela", 10767: "Charla", 10768: "Política"
+};
+
+// Listados específicos para los selectores de la interfaz
+const MOVIE_GENRES = [
+  { id: 28, name: "Acción" }, { id: 12, name: "Aventura" }, { id: 16, name: "Animación" },
+  { id: 35, name: "Comedia" }, { id: 80, name: "Crimen" }, { id: 99, name: "Documental" },
+  { id: 18, name: "Drama" }, { id: 10751, name: "Familiar" }, { id: 14, name: "Fantasía" },
+  { id: 36, name: "Historia" }, { id: 27, name: "Terror" }, { id: 10402, name: "Música" },
+  { id: 9648, name: "Misterio" }, { id: 10749, name: "Romance" }, { id: 878, name: "Ciencia Ficción" },
+  { id: 53, name: "Suspense" }, { id: 10752, name: "Bélica" }, { id: 37, name: "Western" }
+];
+
+const TV_GENRES = [
+  { id: 10759, name: "Acción y Aventura" }, { id: 16, name: "Animación" }, { id: 35, name: "Comedia" },
+  { id: 80, name: "Crimen" }, { id: 99, name: "Documental" }, { id: 18, name: "Drama" },
+  { id: 10751, name: "Familiar" }, { id: 10762, name: "Infantil" }, { id: 9648, name: "Misterio" },
+  { id: 10763, name: "Noticias" }, { id: 10764, name: "Reality" }, { id: 10765, name: "Sci-Fi y Fantasía" },
+  { id: 10766, name: "Telenovela" }, { id: 10767, name: "Charla" }, { id: 10768, name: "Política" },
+  { id: 37, name: "Western" }
+];
+
+export default function Rankings() {
+  const [mediaType, setMediaType] = useState('movie'); // 'movie' o 'tv'
+  const [selectedGenre, setSelectedGenre] = useState('all'); // ID del género o 'all'
+  const [rankedItems, setRankedItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchGlobalRankings();
+  }, [mediaType, selectedGenre]);
+
+  const fetchGlobalRankings = async () => {
+    setLoading(true);
+    try {
+      let url = '';
+      
+      if (selectedGenre === 'all') {
+        // Top rated oficial curado de TMDB
+        url = `https://api.themoviedb.org/3/${mediaType}/top_rated?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES&page=1`;
+      } else {
+        // Filtro por género usando discover y controlando votos mínimos
+        const minVotes = mediaType === 'movie' ? 500 : 150;
+        url = `https://api.themoviedb.org/3/discover/${mediaType}?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES&sort_by=vote_average.desc&vote_count.gte=${minVotes}&with_genres=${selectedGenre}&page=1`;
+      }
+
+      const res = await fetch(url);
+      const data = await res.json();
+      
+      if (data.results) {
+        const formatted = data.results.map(item => {
+          const date = item.release_date || item.first_air_date;
+          const year = date ? date.substring(0, 4) : 'N/A';
+          const genres = item.genre_ids ? item.genre_ids.map(id => GENRE_MAP[id] || '').filter(Boolean) : [];
+          
+          return {
+            id: item.id,
+            title: item.title || item.name,
+            year,
+            genres,
+            poster_url: item.poster_path 
+              ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
+              : 'https://via.placeholder.com/500x750?text=Sin+Poster',
+            vote_average: item.vote_average || 0,
+            vote_count: item.vote_count || 0
+          };
+        });
+        
+        setRankedItems(formatted);
+      }
+    } catch (error) {
+      console.error("Error al consultar el ranking en TMDB:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getPodiumBadge = (index) => {
+    if (index === 0) return '🥇';
+    if (index === 1) return '🥈';
+    if (index === 2) return '🥉';
+    return `#${index + 1}`;
+  };
+
+  const currentGenresList = mediaType === 'movie' ? MOVIE_GENRES : TV_GENRES;
+
+  return (
+    <div className="space-y-6">
+      {/* Controles de Filtrado Superior */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">Rankings Históricos Globales (TMDB)</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Explora las obras maestras mejor valoradas del planeta por millones de cinéfilos</p>
+        </div>
+        
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          {/* Selector de Tipo */}
+          <select 
+            className="flex-grow md:flex-none bg-gray-50 border border-gray-200 text-gray-700 py-2 px-4 rounded-xl shadow-sm outline-none font-medium transition-all focus:border-blue-500 focus:bg-white text-sm" 
+            value={mediaType} 
+            onChange={(e) => {
+              setMediaType(e.target.value);
+              setSelectedGenre('all');
+            }}
+          >
+            <option value="movie">🎬 Películas</option>
+            <option value="tv">📺 Series de TV</option>
+          </select>
+
+          {/* Selector Dinámico de Géneros */}
+          <select 
+            className="flex-grow md:flex-none bg-gray-50 border border-gray-200 text-gray-700 py-2 px-4 rounded-xl shadow-sm outline-none font-medium transition-all focus:border-blue-500 focus:bg-white text-sm" 
+            value={selectedGenre} 
+            onChange={(e) => setSelectedGenre(e.target.value)}
+          >
+            <option value="all">🏆 Todos los géneros (Top General)</option>
+            {currentGenresList.map(genre => (
+              <option key={genre.id} value={genre.id}>🎭 {genre.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Listado Visualizado */}
+      {loading ? (
+        <div className="flex justify-center items-center py-24 bg-white rounded-2xl border border-gray-100">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span className="ml-3 text-sm text-gray-500 font-bold">Conectando con servidores de TMDB...</span>
+        </div>
+      ) : rankedItems.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-2xl border border-gray-100">
+          <p className="text-gray-400 font-bold text-sm italic">No se encontraron producciones históricas en este género.</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-100">
+          {rankedItems.map((m, index) => (
+            <div 
+              key={m.id} 
+              className="flex items-center gap-4 p-4 hover:bg-gray-50/50 transition-colors"
+            >
+              {/* Posición en el ranking */}
+              <div className="w-12 text-center font-black text-lg text-gray-700 flex justify-center items-center">
+                <span className={index < 3 ? 'text-2xl' : 'text-sm text-gray-400'}>
+                  {getPodiumBadge(index)}
+                </span>
+              </div>
+
+              {/* Poster de la producción */}
+              <div className="w-12 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 border border-gray-200">
+                <img src={m.poster_url} alt={m.title} className="w-full h-full object-cover" />
+              </div>
+
+              {/* Título e Info Principal */}
+              <div className="flex-grow min-w-0">
+                <div className="flex items-baseline gap-2">
+                  <h3 className="font-bold text-gray-900 truncate text-base">{m.title}</h3>
+                  <span className="text-xs text-gray-400 flex-shrink-0">({m.year})</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 items-center mt-1">
+                  <span className="bg-gray-100 text-gray-600 text-[9px] font-bold px-2 py-0.5 rounded uppercase">
+                    {mediaType === 'tv' ? 'Serie' : 'Película'}
+                  </span>
+                  <p className="text-[10px] text-gray-400 font-medium truncate">
+                    {m.genres.length > 0 ? m.genres.join(' • ') : 'Sin géneros'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Nota oficial global de TMDB */}
+              <div className="flex flex-col items-end justify-center pl-2 flex-shrink-0">
+                <div className="flex items-center gap-1 font-black text-yellow-500 text-base">
+                  ★ <span className="text-gray-900">{m.vote_average.toFixed(1)}</span>
+                </div>
+                <span className="text-[10px] text-gray-400 font-bold mt-0.5 whitespace-nowrap">
+                  {m.vote_count.toLocaleString('es-ES')} votos
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

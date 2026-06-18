@@ -181,10 +181,10 @@ export default function Auth({ onGuestLogin }) {
         </p>
       </div>
 
-      <style jsx global>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .animate-fade-in { animation: fadeIn 1s ease-in-out; }
-      `}</style> 
+      `}} /> 
     </div>
   );
 }
