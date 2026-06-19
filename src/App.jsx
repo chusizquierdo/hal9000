@@ -16,7 +16,7 @@ import NavbarTabs from './components/NavbarTabs';
 export default function App() {
   const [session, setSession] = useState(null);
   const [currentView, setCurrentView] = useState('dashboard');
-  const [activeTab, setActiveTab] = useState('feed');
+  const [activeTab, setActiveTab] = useState('feed'); // NUEVO: Estado global del menú
   const [selectedMediaId, setSelectedMediaId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -158,102 +158,110 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-100 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 
-            className="text-2xl font-black text-gray-900 tracking-tighter cursor-pointer hover:text-blue-600 transition-colors flex items-center gap-2" 
-            onClick={navigateToDashboard}
-          >
-            HAL<span className="text-blue-600">9000</span>
-            {isAdmin && <span className="text-[10px] bg-red-100 text-red-600 font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wide">Admin</span>}
-          </h1>
-          
-          <div className="flex gap-3 sm:gap-4 items-center">
-            {!session.isGuest && (
-              <button 
-                onClick={() => { setCurrentView('create'); setIsDropdownOpen(false); }} 
-                className="bg-blue-600 text-white px-4 sm:px-5 py-2 rounded-full font-bold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg text-xs sm:text-sm"
-              >
-                + Nueva Reseña
-              </button>
-            )}
+      
+      {/* NUEVO: Contenedor superior fijo que agrupa la Navbar y las Pestañas */}
+      <header className="sticky top-0 z-50 bg-white shadow-sm border-b border-gray-100">
+        
+        {/* Navbar Principal sin la clase sticky */}
+        <nav className="bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <h1 
+              className="text-2xl font-black text-gray-900 tracking-tighter cursor-pointer hover:text-blue-600 transition-colors flex items-center gap-2" 
+              onClick={navigateToDashboard}
+            >
+              HAL<span className="text-blue-600">9000</span>
+              {isAdmin && <span className="text-[10px] bg-red-100 text-red-600 font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wide">Admin</span>}
+            </h1>
+            
+            <div className="flex gap-3 sm:gap-4 items-center">
+              {!session.isGuest && (
+                <button 
+                  onClick={() => { setCurrentView('create'); setIsDropdownOpen(false); }} 
+                  className="bg-blue-600 text-white px-4 sm:px-5 py-2 rounded-full font-bold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg text-xs sm:text-sm"
+                >
+                  + Nueva Reseña
+                </button>
+              )}
 
-            <div className="relative">
-              <button 
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="flex items-center justify-center w-10 h-10 rounded-full focus:outline-none transition-all duration-200 border-2 border-transparent hover:border-blue-500 hover:shadow-md"
-              >
-                {profile.avatar_url ? (
-                  <img src={profile.avatar_url} alt="User Avatar" className="w-full h-full rounded-full object-cover" />
-                ) : (
-                  <div className="w-full h-full rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-black uppercase tracking-wider shadow-inner">
-                    {profile.username[0]}
-                  </div>
-                )}
-              </button>
+              <div className="relative">
+                <button 
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="flex items-center justify-center w-10 h-10 rounded-full focus:outline-none transition-all duration-200 border-2 border-transparent hover:border-blue-500 hover:shadow-md"
+                >
+                  {profile.avatar_url ? (
+                    <img src={profile.avatar_url} alt="User Avatar" className="w-full h-full rounded-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-black uppercase tracking-wider shadow-inner">
+                      {profile.username[0]}
+                    </div>
+                  )}
+                </button>
 
-              {isDropdownOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setIsDropdownOpen(false)}></div>
-                  
-                  <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 py-2 origin-top-right transition-all">
+                {isDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsDropdownOpen(false)}></div>
                     
-                    <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50 rounded-t-2xl flex items-center gap-3">
-                      {profile.avatar_url ? (
-                        <img src={profile.avatar_url} alt="User Avatar Large" className="w-11 h-11 rounded-full object-cover border border-gray-200 shadow-sm" />
+                    <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 py-2 origin-top-right transition-all">
+                      
+                      <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50 rounded-t-2xl flex items-center gap-3">
+                        {profile.avatar_url ? (
+                          <img src={profile.avatar_url} alt="User Avatar Large" className="w-11 h-11 rounded-full object-cover border border-gray-200 shadow-sm" />
+                        ) : (
+                          <div className="w-11 h-11 rounded-full bg-blue-600 text-white flex items-center justify-center text-base font-black uppercase">
+                            {profile.username[0]}
+                          </div>
+                        )}
+                        <div className="overflow-hidden">
+                          <p className="text-sm font-black text-gray-900 truncate">{profile.username}</p>
+                          <p className="text-xs text-gray-400 truncate font-medium">
+                            {session.isGuest ? 'Modo de lectura' : session.user.email}
+                          </p>
+                        </div>
+                      </div>
+
+                      {!session.isGuest ? (
+                        <>
+                          <button onClick={navigateToSettings} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-bold flex items-center gap-2 transition-colors mt-1">
+                            ⚙️ Configurar Perfil
+                          </button>
+                          <button onClick={navigateToMyReviews} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors">
+                            📂 Mis reseñas (Biblioteca)
+                          </button>
+                          <button onClick={navigateToWatchlist} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors">
+                            ⏳ Películas pendientes
+                          </button>
+
+                          {isAdmin && (
+                            <button onClick={navigateToAdminPanel} className="w-full text-left px-4 py-2.5 text-sm text-purple-600 hover:bg-purple-50 font-black flex items-center gap-2 transition-colors border-t border-gray-100 pt-2">
+                              👑 Panel de Admin
+                            </button>
+                          )}
+
+                          <div className="border-t border-gray-100 mt-2 pt-1.5">
+                            <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-bold flex items-center gap-2 transition-colors">
+                              🚪 Cerrar sesión
+                            </button>
+                          </div>
+                        </>
                       ) : (
-                        <div className="w-11 h-11 rounded-full bg-blue-600 text-white flex items-center justify-center text-base font-black uppercase">
-                          {profile.username[0]}
+                        <div className="p-1 mt-1 flex flex-col gap-1">
+                          <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm text-blue-600 bg-blue-50/50 hover:bg-blue-600 hover:text-white font-bold flex items-center gap-2 transition-colors rounded-xl">
+                            🚪 Salir / Iniciar Sesión
+                          </button>
                         </div>
                       )}
-                      <div className="overflow-hidden">
-                        <p className="text-sm font-black text-gray-900 truncate">{profile.username}</p>
-                        <p className="text-xs text-gray-400 truncate font-medium">
-                          {session.isGuest ? 'Modo de lectura' : session.user.email}
-                        </p>
-                      </div>
                     </div>
-
-                    {!session.isGuest ? (
-                      <>
-                        <button onClick={navigateToSettings} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-bold flex items-center gap-2 transition-colors mt-1">
-                          ⚙️ Configurar Perfil
-                        </button>
-                        <button onClick={navigateToMyReviews} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors">
-                          📂 Mis reseñas (Biblioteca)
-                        </button>
-                        <button onClick={navigateToWatchlist} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors">
-                          ⏳ Películas pendientes
-                        </button>
-
-                        {isAdmin && (
-                          <button onClick={navigateToAdminPanel} className="w-full text-left px-4 py-2.5 text-sm text-purple-600 hover:bg-purple-50 font-black flex items-center gap-2 transition-colors border-t border-gray-100 pt-2">
-                            👑 Panel de Admin
-                          </button>
-                        )}
-
-                        <div className="border-t border-gray-100 mt-2 pt-1.5">
-                          <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-bold flex items-center gap-2 transition-colors">
-                            🚪 Cerrar sesión
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="p-1 mt-1 flex flex-col gap-1">
-                        <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm text-blue-600 bg-blue-50/50 hover:bg-blue-600 hover:text-white font-bold flex items-center gap-2 transition-colors rounded-xl">
-                          🚪 Salir / Iniciar Sesión
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      </nav>
+        </nav>
 
-      <NavbarTabs activeTab={activeTab} onTabChange={handleTabChange} />
+        {/* Las pestañas quedan dentro del header para que sean siempre visibles */}
+        <NavbarTabs activeTab={activeTab} onTabChange={handleTabChange} />
+        
+      </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {currentView === 'dashboard' && (

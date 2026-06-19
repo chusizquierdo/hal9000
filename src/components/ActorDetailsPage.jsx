@@ -25,11 +25,18 @@ export default function ActorDetailsPage({ actorId, onBack, onMediaClick }) {
       );
       const creditsData = await creditsRes.json();
       
-      // Ordenamos por popularidad de la producción y filtramos para que tengan póster disponible
+      // 3. Filtrado y ordenación inteligente ("Algoritmo de Iconicidad")
       const sortedCredits = (creditsData.cast || [])
-        .filter(c => c.poster_path)
-        .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
-        .slice(0, 12);
+        .filter(c => c.poster_path) // Solo producciones que tengan póster oficial
+        .filter(c => c.vote_count && c.vote_count > 100) // Omitir proyectos ínfimos o sin recorrido comercial
+        .filter(c => !c.character?.toLowerCase().includes('self')) // Omitir documentales o entrevistas haciendo de sí mismos
+        .sort((a, b) => {
+          // Calculamos un "score" combinando cantidad de impacto (votos) y calidad (nota media)
+          const scoreA = a.vote_count * (a.vote_average / 10);
+          const scoreB = b.vote_count * (b.vote_average / 10);
+          return scoreB - scoreA;
+        })
+        .slice(0, 15); // Aumentamos a 15 para dar más contexto visual de la carrera
 
       setMovieCredits(sortedCredits);
     } catch (error) {
@@ -131,11 +138,11 @@ export default function ActorDetailsPage({ actorId, onBack, onMediaClick }) {
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
                   />
                 </div>
-                <p className="text-[11px] font-bold text-gray-800 mt-2 truncate px-1 group-hover:text-blue-600 transition-colors">
+                <p className="text-[11px] font-bold text-gray-800 mt-2 truncate px-1 group-hover:text-blue-600 transition-colors" title={media.title || media.name}>
                   {media.title || media.name}
                 </p>
                 {media.character && (
-                  <p className="text-[10px] text-gray-400 truncate px-1 italic">
+                  <p className="text-[10px] text-gray-400 truncate px-1 italic" title={`como ${media.character}`}>
                     como {media.character}
                   </p>
                 )}
