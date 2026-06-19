@@ -159,10 +159,10 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-50">
       
-      {/* NUEVO: Contenedor superior fijo que agrupa la Navbar y las Pestañas */}
+      {/* Contenedor superior fijo que agrupa la Navbar y las Pestañas */}
       <header className="sticky top-0 z-50 bg-white shadow-sm border-b border-gray-100">
         
-        {/* Navbar Principal sin la clase sticky */}
+        {/* Navbar Principal */}
         <nav className="bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
             <h1 
@@ -177,9 +177,19 @@ export default function App() {
               {!session.isGuest && (
                 <button 
                   onClick={() => { setCurrentView('create'); setIsDropdownOpen(false); }} 
-                  className="bg-blue-600 text-white px-4 sm:px-5 py-2 rounded-full font-bold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg text-xs sm:text-sm"
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 sm:px-5 py-2 rounded-xl font-bold hover:from-blue-700 hover:to-indigo-700 active:scale-95 transition-all shadow-md hover:shadow-lg text-xs sm:text-sm tracking-tight border border-blue-500/10"
                 >
-                  + Nueva Reseña
+                  <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    strokeWidth={2.5} 
+                    stroke="currentColor" 
+                    className="w-4 h-4"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                  Nueva Reseña
                 </button>
               )}
 

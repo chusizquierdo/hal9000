@@ -83,7 +83,7 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
       if (sortBy === 'rating') return b.avg - a.avg;
       if (sortBy === 'title') return a.title.localeCompare(b.title);
       if (sortBy === 'year_new') return b.year - a.year;
-      if (sortBy === 'year_old') return b.year - a.year;
+      if (sortBy === 'year_old') return a.year - b.year;
       if (sortBy === 'recent') {
         const dateA = a.firstReview ? new Date(a.firstReview.created_at) : new Date(0);
         const dateB = b.firstReview ? new Date(b.firstReview.created_at) : new Date(0);
