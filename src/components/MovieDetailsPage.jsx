@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import ActorDetailsPage from './ActorDetailsPage';
 
 export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
+  const [currentUser, setCurrentUser] = useState(null);
   const [movieData, setMovieData] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [userReview, setUserReview] = useState(null);
@@ -54,6 +55,7 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
 
   const fetchData = async () => {
     const { data: { user } } = await supabase.auth.getUser();
+    setCurrentUser(user);
     const type = currentMediaType;
     const tmdbId = currentTmdbId;
 
@@ -110,10 +112,21 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
     } catch (e) { setRecommendations([]); }
 
     if (dbItemId) {
-      const { data: allReviews } = await supabase.from('reviews').select('*, profiles(username)').eq('media_id', dbItemId);
-      setReviews(allReviews || []);
+      const { data: allReviews } = await supabase
+        .from('reviews')
+        .select('*, profiles(username), review_likes(user_id)')
+        .eq('media_id', dbItemId);
       
-      const myReview = allReviews?.find(r => r.user_id === user?.id);
+      // Ordenamos las reseñas de mayor a menor número de likes antes de guardarlas en el estado
+      const sortedReviews = (allReviews || []).sort((a, b) => {
+        const likesA = a.review_likes?.length || 0;
+        const likesB = b.review_likes?.length || 0;
+        return likesB - likesA;
+      });
+      
+      setReviews(sortedReviews);
+      
+      const myReview = sortedReviews?.find(r => r.user_id === user?.id);
       if (myReview) { 
         setUserReview(myReview); 
         setComment(myReview.comment); 
@@ -143,6 +156,29 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
       setRating(5.0);
       setIsInWatchlist(false);
       setWatchlistId(null);
+    }
+  };
+
+  const handleToggleLike = async (reviewId, reviewAuthorId, currentLikes) => {
+    if (!currentUser) return alert("Debes iniciar sesión para dar me gusta");
+    if (currentUser.id === reviewAuthorId) return;
+
+    const hasLiked = currentLikes.some(like => like.user_id === currentUser.id);
+
+    setReviews(prevReviews => prevReviews.map(r => {
+      if (r.id === reviewId) {
+        const updatedLikes = hasLiked
+          ? r.review_likes.filter(l => l.user_id !== currentUser.id)
+          : [...(r.review_likes || []), { user_id: currentUser.id }];
+        return { ...r, review_likes: updatedLikes };
+      }
+      return r;
+    }));
+
+    if (hasLiked) {
+      await supabase.from('review_likes').delete().match({ review_id: reviewId, user_id: currentUser.id });
+    } else {
+      await supabase.from('review_likes').insert({ review_id: reviewId, user_id: currentUser.id });
     }
   };
 
@@ -182,8 +218,7 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
   };
 
   const handleToggleWatchlist = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!currentUser) return;
 
     const dbItemId = await ensureMediaItemExistsInDb();
     if (!dbItemId) return;
@@ -192,14 +227,13 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
       const { error } = await supabase.from('watchlist').delete().eq('id', watchlistId);
       if (!error) { setIsInWatchlist(false); setWatchlistId(null); }
     } else {
-      const { data, error } = await supabase.from('watchlist').insert({ user_id: user.id, media_item_id: dbItemId }).select('id').single();
+      const { data, error } = await supabase.from('watchlist').insert({ user_id: currentUser.id, media_item_id: dbItemId }).select('id').single();
       if (!error && data) { setIsInWatchlist(true); setWatchlistId(data.id); }
     }
   };
 
   const handleSaveReview = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!currentUser) return;
 
     const dbItemId = await ensureMediaItemExistsInDb();
     if (!dbItemId) return;
@@ -207,7 +241,7 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
     if (userReview) {
       await supabase.from('reviews').update({ comment, rating: parseFloat(rating) }).eq('id', userReview.id);
     } else {
-      await supabase.from('reviews').insert({ user_id: user.id, media_id: dbItemId, comment, rating: parseFloat(rating) });
+      await supabase.from('reviews').insert({ user_id: currentUser.id, media_id: dbItemId, comment, rating: parseFloat(rating) });
     }
     setIsEditing(false); fetchData();
   };
@@ -258,7 +292,6 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
       ? movieData.first_air_date.substring(0, 4) 
       : 'N/A';
 
-  // Lógica de control para bloquear puntuaciones si el contenido no se ha estrenado todavía
   const rawReleaseDate = movieData.release_date || movieData.first_air_date;
   const isNotReleasedYet = rawReleaseDate ? new Date(rawReleaseDate) > new Date() : false;
 
@@ -468,25 +501,49 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
 
       <div className="space-y-4">
         {reviews.filter(r => r.id !== userReview?.id).length > 0 ? (
-          reviews.filter(r => r.id !== userReview?.id).map(r => (
-            <div key={r.id} className="border-b border-gray-100 pb-4 flex justify-between items-start gap-4">
-              <div className="flex-grow">
-                <p className="font-bold text-gray-900 text-sm">{r.profiles?.username || 'Usuario anónimo'}</p>
-                <p className="text-yellow-500 font-bold text-sm mt-0.5">{r.rating} ★</p>
-                <p className="text-gray-600 text-sm mt-1">{"comment" in r ? r.comment : ''}</p>
+          reviews.filter(r => r.id !== userReview?.id).map(r => {
+            const reviewLikes = r.review_likes || [];
+            const hasLiked = currentUser && reviewLikes.some(like => like.user_id === currentUser.id);
+            const isOwnReview = currentUser && currentUser.id === r.user_id;
+
+            return (
+              <div key={r.id} className="border-b border-gray-100 pb-4 flex justify-between items-start gap-4">
+                <div className="flex-grow">
+                  <p className="font-bold text-gray-900 text-sm">{r.profiles?.username || 'Usuario anónimo'}</p>
+                  <p className="text-yellow-500 font-bold text-sm mt-0.5">{r.rating} ★</p>
+                  <p className="text-gray-600 text-sm mt-1">{"comment" in r ? r.comment : ''}</p>
+                  
+                  <div className="mt-3">
+                    <button 
+                      onClick={() => handleToggleLike(r.id, r.user_id, reviewLikes)}
+                      disabled={isOwnReview || !currentUser}
+                      className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full transition-all ${
+                        isOwnReview 
+                          ? 'bg-gray-50 text-gray-400 cursor-not-allowed border border-gray-100' 
+                          : hasLiked
+                            ? 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-100'
+                            : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+                      }`}
+                      title={isOwnReview ? "No puedes darle me gusta a tu propia reseña" : !currentUser ? "Inicia sesión para dar me gusta" : ""}
+                    >
+                      <span>{hasLiked ? '❤️' : '🤍'}</span>
+                      <span>{reviewLikes.length}</span>
+                    </button>
+                  </div>
+                </div>
+                
+                {isAdmin && (
+                  <button 
+                    onClick={() => handleDeleteUserReview(r.id)}
+                    className="text-xs bg-red-50 text-red-600 border border-red-200 px-2.5 py-1 rounded-xl font-bold hover:bg-red-600 hover:text-white transition-all tracking-tight shrink-0 shadow-sm"
+                    title="Borrar comentario inapropiado"
+                  >
+                    Eliminar
+                  </button>
+                )}
               </div>
-              
-              {isAdmin && (
-                <button 
-                  onClick={() => handleDeleteUserReview(r.id)}
-                  className="text-xs bg-red-50 text-red-600 border border-red-200 px-2.5 py-1 rounded-xl font-bold hover:bg-red-600 hover:text-white transition-all tracking-tight shrink-0 shadow-sm"
-                  title="Borrar comentario inapropiado"
-                >
-                  Eliminar
-                </button>
-              )}
-            </div>
-          ))
+            );
+          })
         ) : (
           <p className="text-gray-400 text-xs italic font-medium">Aún no hay más reseñas escritas para este título.</p>
         )}
