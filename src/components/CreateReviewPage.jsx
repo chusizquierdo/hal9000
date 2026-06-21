@@ -12,6 +12,24 @@ export default function CreateReviewPage({ onReviewCreated }) {
   const [watchlistId, setWatchlistId] = useState(null);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
 
+  // --- Lógica de Formato Markdown ---
+  const applyFormat = (format) => {
+    const textarea = document.getElementById('review-textarea');
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = comment;
+    const selected = text.substring(start, end);
+    let replacement = '';
+    if (format === 'bold') replacement = `**${selected}**`;
+    if (format === 'italic') replacement = `*${selected}*`;
+    if (format === 'spoiler') replacement = `[spoiler]${selected}[/spoiler]`;
+    setComment(text.substring(0, start) + replacement + text.substring(end));
+    // Devolver el foco al textarea
+    setTimeout(() => textarea.focus(), 0);
+  };
+  // ----------------------------------
+
   useEffect(() => {
     if (selectedMedia) {
       checkWatchlist();
@@ -111,7 +129,6 @@ export default function CreateReviewPage({ onReviewCreated }) {
     const mediaType = selectedMedia.media_type === 'tv' ? 'tv' : 'movie';
     const mediaTitle = selectedMedia.title || selectedMedia.name;
 
-    // 1. Obtener o crear la película usando api_id
     let { data: existingMedia, error: searchError } = await supabase
       .from('media_items')
       .select('id')
@@ -139,7 +156,6 @@ export default function CreateReviewPage({ onReviewCreated }) {
       mediaIdToUse = newMedia.id;
     }
 
-    // 2. Gestionar la reseña con confirmación de actualización
     const { data: existingReview } = await supabase
       .from('reviews')
       .select('id')
@@ -223,9 +239,18 @@ export default function CreateReviewPage({ onReviewCreated }) {
             
             <div className="flex flex-col gap-2">
               <label className="text-sm font-bold text-gray-700">Comentario</label>
+              
+              {/* Barra de herramientas */}
+              <div className="flex gap-2 p-2 bg-gray-100 border border-gray-200 rounded-lg w-fit">
+                <button type="button" onClick={() => applyFormat('bold')} className="px-3 py-1 bg-white rounded text-xs font-bold hover:bg-gray-50 shadow-sm border border-gray-200">Negrita</button>
+                <button type="button" onClick={() => applyFormat('italic')} className="px-3 py-1 bg-white rounded text-xs italic hover:bg-gray-50 shadow-sm border border-gray-200">Cursiva</button>
+                <button type="button" onClick={() => applyFormat('spoiler')} className="px-3 py-1 bg-white rounded text-xs hover:bg-gray-50 shadow-sm border border-gray-200">Spoiler</button>
+              </div>
+
               <textarea 
+                id="review-textarea"
                 className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-50 outline-none transition-all" 
-                placeholder="¿Qué te ha parecido?" rows="4" value={comment} onChange={(e) => setComment(e.target.value)} required
+                placeholder="¿Qué te ha parecido?..." rows="4" value={comment} onChange={(e) => setComment(e.target.value)} required
               />
             </div>
 

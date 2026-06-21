@@ -26,6 +26,31 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
 
   const [selectedActorId, setSelectedActorId] = useState(null);
 
+  // --- Lógica de Formato Markdown ---
+  const applyFormat = (format) => {
+    const textarea = document.getElementById('review-textarea');
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = comment;
+    const selected = text.substring(start, end);
+    let replacement = '';
+    if (format === 'bold') replacement = `**${selected}**`;
+    if (format === 'italic') replacement = `*${selected}*`;
+    if (format === 'spoiler') replacement = `[spoiler]${selected}[/spoiler]`;
+    setComment(text.substring(0, start) + replacement + text.substring(end));
+  };
+
+  const renderFormattedComment = (text) => {
+    if (!text) return text;
+    let formatted = text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/\[spoiler\](.*?)\[\/spoiler\]/g, '<span class="spoiler-blur" onclick="this.classList.add(\'revealed\')">$1</span>');
+    return <span dangerouslySetInnerHTML={{ __html: formatted }} />;
+  };
+  // ----------------------------------
+
   useEffect(() => {
     const resolveInitialId = async () => {
       const { data: item } = await supabase
@@ -117,7 +142,6 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
         .select('*, profiles(username), review_likes(user_id)')
         .eq('media_id', dbItemId);
       
-      // Ordenamos las reseñas de mayor a menor número de likes antes de guardarlas en el estado
       const sortedReviews = (allReviews || []).sort((a, b) => {
         const likesA = a.review_likes?.length || 0;
         const likesB = b.review_likes?.length || 0;
@@ -404,22 +428,6 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
               )}
             </div>
           </div>
-
-          <div className="mt-6">
-            <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wider mb-2.5">Disponible en (España)</p>
-            {watchProviders.length > 0 ? (
-              <div className="flex flex-wrap gap-2.5">
-                {watchProviders.map((provider) => (
-                  <div key={provider.provider_id} className="flex items-center gap-2 bg-white border border-gray-100 rounded-xl p-2 shadow-sm" title={provider.provider_name}>
-                    <img src={`https://image.tmdb.org/t/p/original${provider.logo_path}`} alt={provider.provider_name} className="w-6 h-6 rounded-md object-cover shadow-inner" />
-                    <span className="text-xs font-bold text-gray-700 pr-1">{provider.provider_name}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-400 text-xs italic font-medium bg-gray-50 border border-gray-100 rounded-xl p-3 inline-block">No disponible en suscripciones de streaming en este momento.</p>
-            )}
-          </div>
         </div>
       </div>
 
@@ -472,12 +480,17 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
             {userReview && !isEditing ? (
               <div>
                 <p className="text-yellow-500 font-black text-xl">{userReview.rating} ★</p>
-                <p className="italic mt-2 text-gray-700">"{userReview.comment}"</p>
+                <div className="italic mt-2 text-gray-700">{renderFormattedComment(userReview.comment)}</div>
                 <button onClick={() => setIsEditing(true)} className="text-blue-600 mt-3 font-bold text-sm underline hover:text-blue-700">Editar mi reseña</button>
               </div>
             ) : (
               <div className="flex flex-col gap-4">
-                <textarea className="w-full p-4 border border-gray-200 rounded-xl resize-none outline-none focus:border-blue-500 bg-white" placeholder="¿Qué te ha parecido? Cuéntale a la comunidad tus impresiones..." value={comment} onChange={e => setComment(e.target.value)} />
+                <div className="flex gap-2 p-2 bg-white border border-gray-200 rounded-lg w-fit">
+                    <button type="button" onClick={() => applyFormat('bold')} className="px-3 py-1 bg-gray-100 rounded text-xs font-bold hover:bg-gray-200">Negrita</button>
+                    <button type="button" onClick={() => applyFormat('italic')} className="px-3 py-1 bg-gray-100 rounded text-xs italic hover:bg-gray-200">Cursiva</button>
+                    <button type="button" onClick={() => applyFormat('spoiler')} className="px-3 py-1 bg-gray-100 rounded text-xs hover:bg-gray-200">Spoiler</button>
+                </div>
+                <textarea id="review-textarea" className="w-full p-4 border border-gray-200 rounded-xl resize-none outline-none focus:border-blue-500 bg-white" placeholder="¿Qué te ha parecido? Cuéntale a la comunidad tus impresiones..." value={comment} onChange={e => setComment(e.target.value)} />
                 <div>
                   <label className="font-bold text-sm block mb-2 text-gray-600">Tu puntuación: <span className="text-blue-600 font-black">{rating.toFixed(1)} / 10</span></label>
                   <div className="flex flex-wrap gap-1">
@@ -511,7 +524,7 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
                 <div className="flex-grow">
                   <p className="font-bold text-gray-900 text-sm">{r.profiles?.username || 'Usuario anónimo'}</p>
                   <p className="text-yellow-500 font-bold text-sm mt-0.5">{r.rating} ★</p>
-                  <p className="text-gray-600 text-sm mt-1">{"comment" in r ? r.comment : ''}</p>
+                  <div className="text-gray-600 text-sm mt-1">{renderFormattedComment(r.comment)}</div>
                   
                   <div className="mt-3">
                     <button 

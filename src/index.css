@@ -1,3 +1,20 @@
 @import "tailwindcss";
 
 /* Debajo de esto, mantén todo tu CSS personalizado */
+
+/* Mantenemos tu base */
+.spoiler-blur {
+  background-color: #333;
+  color: transparent;
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: 4px;
+  transition: all 0.3s;
+  display: inline-block; /* Recomendado para que no se rompa el texto */
+}
+
+/* Este selector es más directo y funcionará mejor con el onclick que puse */
+.spoiler-blur.revealed {
+  background-color: #eee;
+  color: #333;
+}
