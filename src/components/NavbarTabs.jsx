@@ -11,6 +11,7 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
     { id: 'trailers', label: 'Próximos Trailers' },
     { id: 'suggestions', label: 'Sugerencias' },
     { id: 'news', label: 'Noticias' },
+    { id: 'quiz', label: 'Quiz' },
     { id: 'contact', label: 'Contactar Admin' }, // NUEVA PESTAÑA AÑADIDA
   ];
 

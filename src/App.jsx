@@ -12,7 +12,8 @@ import UpdatePassword from './components/UpdatePassword';
 import AdminUserPanel from './components/AdminUserPanel';
 import UserLeaderboard from './components/UserLeaderboard';
 import NavbarTabs from './components/NavbarTabs';
-import ContactAdminPage from './components/ContactAdminPage'; // IMPORTACIÓN DEL NUEVO COMPONENTE
+import ContactAdminPage from './components/ContactAdminPage'; 
+import QuizGame from './components/QuizGame'; // INTEGRACIÓN DEL COMPONENTE DEL JUEGO
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -194,9 +195,11 @@ export default function App() {
     setSelectedMediaId(null);
     setNavigationStack([]);
     
-    // SI SELECCIONA LA NUEVA PESTAÑA CAMBIAMOS LA VISTA AL FORMULARIO DE CONTACTO
+    // CONTROLAMOS LAS DOS PESTAÑAS ESPECIALES QUE TIENEN VISTAS PROPIAS
     if (tabName === 'contact') {
       setCurrentView('contact');
+    } else if (tabName === 'quiz') {
+      setCurrentView('quiz');
     } else {
       setCurrentView('dashboard');
     }
@@ -231,7 +234,7 @@ export default function App() {
                 </button>
               )}
               <div className="relative">
-                {/* BOTÓN DEL AVATAR: Si es admin y hay sugerencias, colocamos una señal de notificación roja parpadeante */}
+                {/* BOTÓN DEL AVATAR */}
                 <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="relative flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full focus:outline-none transition-all duration-200 border-2 border-transparent hover:border-blue-500 hover:shadow-md">
                   {profile.avatar_url ? <img src={profile.avatar_url} alt="User Avatar" className="w-full h-full rounded-full object-cover" /> : <div className="w-full h-full rounded-full bg-blue-600 text-white flex items-center justify-center text-xs sm:text-sm font-black uppercase tracking-wider shadow-inner">{profile.username[0]}</div>}
                   {isAdmin && suggestionCount > 0 && (
@@ -255,7 +258,7 @@ export default function App() {
                           <button onClick={navigateToMyReviews} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors">📂 Mis reseñas (Biblioteca)</button>
                           <button onClick={navigateToWatchlist} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors">⏳ Películas pendientes</button>
                           
-                          {/* BOTÓN DEL PANEL DE ADMIN: Ahora tiene el indicador de notificación roja con el conteo exacto */}
+                          {/* BOTÓN DEL PANEL DE ADMIN */}
                           {isAdmin && (
                             <button onClick={navigateToAdminPanel} className="w-full text-left px-4 py-2.5 text-sm text-purple-600 hover:bg-purple-50 font-black flex items-center justify-between transition-colors border-t border-gray-100 pt-2">
                               <span className="flex items-center gap-2">👑 Panel de Admin</span>
@@ -307,9 +310,12 @@ export default function App() {
         {currentView === 'admin-panel' && (
           <AdminUserPanel isAdmin={isAdmin} />
         )}
-        {/* NUEVA VISTA RENDERIZADA CUANDO EL USUARIO SE ENCUENTRA EN LA TAB DE CONTACTO */}
         {currentView === 'contact' && (
           <ContactAdminPage session={session} onBack={navigateToDashboard} />
+        )}
+        {/* RENDERIZADO DEL JUEGO DE PREGUNTAS CUANDO EL ESTADO ES QUIZ */}
+        {currentView === 'quiz' && (
+          <QuizGame onBack={navigateToDashboard} />
         )}
       </main>
     </div>
