@@ -12,11 +12,12 @@ import UpdatePassword from './components/UpdatePassword';
 import AdminUserPanel from './components/AdminUserPanel';
 import UserLeaderboard from './components/UserLeaderboard';
 import NavbarTabs from './components/NavbarTabs';
+import ContactAdminPage from './components/ContactAdminPage'; // IMPORTACIÓN DEL NUEVO COMPONENTE
 
 export default function App() {
   const [session, setSession] = useState(null);
   const [currentView, setCurrentView] = useState('dashboard');
-  const [navigationStack, setNavigationStack] = useState([]); // NUEVO: Historial de navegación
+  const [navigationStack, setNavigationStack] = useState([]); // Historial de navegación
   const [activeTab, setActiveTab] = useState('feed'); 
   const [selectedMediaId, setSelectedMediaId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -24,15 +25,16 @@ export default function App() {
   const [profile, setProfile] = useState({ username: 'Usuario', avatar_url: '' });
   
   const [isAdmin, setIsAdmin] = useState(false);
+  const [suggestionCount, setSuggestionCount] = useState(0); // NUEVO ESTADO PARA CONTADOR DE NOTIFICACIONES
 
-  // NUEVO: Lógica para cambiar de vista guardando el historial
+  // Cambiar de vista guardando el historial
   const navigateTo = (view, params = {}) => {
     setNavigationStack(prev => [...prev, { view: currentView, tab: activeTab, mediaId: selectedMediaId }]);
     if (params.mediaId) setSelectedMediaId(params.mediaId);
     setCurrentView(view);
   };
 
-  // NUEVO: Lógica para volver atrás
+  // Volver atrás
   const goBack = () => {
     if (navigationStack.length > 0) {
       const last = navigationStack[navigationStack.length - 1];
@@ -60,6 +62,7 @@ export default function App() {
       } else {
         setSession(null);
         setIsAdmin(false);
+        setSuggestionCount(0);
       }
       if (event === 'PASSWORD_RECOVERY') {
         setCurrentView('update-password');
@@ -72,6 +75,13 @@ export default function App() {
       fetchUserProfile();
     }
   }, [session]);
+
+  // Consultar conteo de sugerencias si cambia el rol o la pantalla
+  useEffect(() => {
+    if (isAdmin) {
+      fetchSuggestionCount();
+    }
+  }, [isAdmin, currentView]);
 
   const fetchUserProfile = async () => {
     if (!session?.user) return;
@@ -97,6 +107,21 @@ export default function App() {
     }
   };
 
+  // NUEVA FUNCIÓN PARA BUSCAR EL NÚMERO DE SUGERENCIAS PENDIENTES
+  const fetchSuggestionCount = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('admin_suggestions')
+        .select('*', { count: 'exact', head: true });
+
+      if (!error && count !== null) {
+        setSuggestionCount(count);
+      }
+    } catch (err) {
+      console.error("Error consultando notificaciones:", err);
+    }
+  };
+
   const handleGuestLogin = () => {
     setSession({
       isGuest: true,
@@ -111,6 +136,7 @@ export default function App() {
   const handleLogout = async () => {
     setIsDropdownOpen(false);
     setIsAdmin(false);
+    setSuggestionCount(0);
     if (session?.isGuest) {
       setSession(null);
     } else {
@@ -166,8 +192,14 @@ export default function App() {
   const handleTabChange = (tabName) => {
     setActiveTab(tabName);
     setSelectedMediaId(null);
-    setCurrentView('dashboard');
     setNavigationStack([]);
+    
+    // SI SELECCIONA LA NUEVA PESTAÑA CAMBIAMOS LA VISTA AL FORMULARIO DE CONTACTO
+    if (tabName === 'contact') {
+      setCurrentView('contact');
+    } else {
+      setCurrentView('dashboard');
+    }
   };
 
   if (currentView === 'update-password') {
@@ -199,8 +231,12 @@ export default function App() {
                 </button>
               )}
               <div className="relative">
-                <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full focus:outline-none transition-all duration-200 border-2 border-transparent hover:border-blue-500 hover:shadow-md">
+                {/* BOTÓN DEL AVATAR: Si es admin y hay sugerencias, colocamos una señal de notificación roja parpadeante */}
+                <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="relative flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full focus:outline-none transition-all duration-200 border-2 border-transparent hover:border-blue-500 hover:shadow-md">
                   {profile.avatar_url ? <img src={profile.avatar_url} alt="User Avatar" className="w-full h-full rounded-full object-cover" /> : <div className="w-full h-full rounded-full bg-blue-600 text-white flex items-center justify-center text-xs sm:text-sm font-black uppercase tracking-wider shadow-inner">{profile.username[0]}</div>}
+                  {isAdmin && suggestionCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
+                  )}
                 </button>
                 {isDropdownOpen && (
                   <>
@@ -218,7 +254,19 @@ export default function App() {
                           <button onClick={navigateToSettings} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-bold flex items-center gap-2 transition-colors mt-1">⚙️ Configurar Perfil</button>
                           <button onClick={navigateToMyReviews} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors">📂 Mis reseñas (Biblioteca)</button>
                           <button onClick={navigateToWatchlist} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors">⏳ Películas pendientes</button>
-                          {isAdmin && <button onClick={navigateToAdminPanel} className="w-full text-left px-4 py-2.5 text-sm text-purple-600 hover:bg-purple-50 font-black flex items-center gap-2 transition-colors border-t border-gray-100 pt-2">👑 Panel de Admin</button>}
+                          
+                          {/* BOTÓN DEL PANEL DE ADMIN: Ahora tiene el indicador de notificación roja con el conteo exacto */}
+                          {isAdmin && (
+                            <button onClick={navigateToAdminPanel} className="w-full text-left px-4 py-2.5 text-sm text-purple-600 hover:bg-purple-50 font-black flex items-center justify-between transition-colors border-t border-gray-100 pt-2">
+                              <span className="flex items-center gap-2">👑 Panel de Admin</span>
+                              {suggestionCount > 0 && (
+                                <span className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm animate-bounce">
+                                  {suggestionCount}
+                                </span>
+                              )}
+                            </button>
+                          )}
+                          
                           <div className="border-t border-gray-100 mt-2 pt-1.5"><button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-bold flex items-center gap-2 transition-colors">🚪 Cerrar sesión</button></div>
                         </>
                       ) : (
@@ -258,6 +306,10 @@ export default function App() {
         )}
         {currentView === 'admin-panel' && (
           <AdminUserPanel isAdmin={isAdmin} />
+        )}
+        {/* NUEVA VISTA RENDERIZADA CUANDO EL USUARIO SE ENCUENTRA EN LA TAB DE CONTACTO */}
+        {currentView === 'contact' && (
+          <ContactAdminPage session={session} onBack={navigateToDashboard} />
         )}
       </main>
     </div>

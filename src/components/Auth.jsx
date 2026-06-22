@@ -102,11 +102,23 @@ export default function Auth({ onGuestLogin }) {
         password,
         options: { data: { username } },
       });
-      if (error) setMessage(error.message);
-      else setMessage('¡Registro exitoso! Por favor, verifica tu correo electrónico para activar tu cuenta.');
+      if (error) {
+        setMessage(error.message);
+      } else {
+        setMessage('¡Registro exitoso! Por favor, verifica tu correo electrónico para activar tu cuenta.');
+      }
     } else if (view === 'login') {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setMessage(error.message);
+      if (error) {
+        // TRADUCCIÓN HUMANA DE ERRORES CRÍTICOS DE SUPABASE
+        if (error.message === 'Email not confirmed') {
+          setMessage('⚠️ Tu correo electrónico aún no ha sido verificado. Por favor, haz clic en el enlace que enviamos a tu bandeja de entrada antes de acceder.');
+        } else if (error.message === 'Invalid login credentials') {
+          setMessage('❌ Acceso denegado. El correo electrónico o la contraseña son incorrectos.');
+        } else {
+          setMessage(error.message);
+        }
+      }
     } else if (view === 'forgot') {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}`,
@@ -128,9 +140,9 @@ export default function Auth({ onGuestLogin }) {
         <h1 className="text-2xl md:text-4xl font-black mb-6 md:mb-10 text-center tracking-widest text-red-500 uppercase">HAL-9000</h1>
         
         {message ? (
-          <div className="text-center text-red-300 p-4 bg-red-950/30 border border-red-900 rounded-lg">
-            {message}
-            <button onClick={() => { setMessage(''); setView('login'); }} className="block w-full mt-4 text-white underline">Volver al inicio</button>
+          <div className="text-center text-red-300 p-4 bg-red-950/30 border border-red-900 rounded-lg max-w-sm mx-auto">
+            <p className="text-sm leading-relaxed font-bold">{message}</p>
+            <button onClick={() => { setMessage(''); setView('login'); }} className="block w-full mt-5 bg-red-900/40 hover:bg-red-900 text-white text-xs py-2 rounded-xl border border-red-700/50 transition-colors uppercase tracking-wider font-bold">Volver al inicio</button>
           </div>
         ) : (
           <form onSubmit={handleAuth} className="flex flex-col gap-4 md:gap-4">
