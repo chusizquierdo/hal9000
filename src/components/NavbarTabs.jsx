@@ -13,31 +13,30 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
     { id: 'news', label: 'Noticias' },
   ];
 
-  // Buscamos la pestaña que está activa para pintar su nombre en el botón móvil
   const currentTab = tabs.find(tab => tab.id === activeTab) || tabs[0];
 
   const handleMobileSelect = (id) => {
     onTabChange(id);
-    setIsOpen(false); // Cierra el menú al hacer clic en una opción
+    setIsOpen(false);
   };
 
   return (
     <div className="max-w-7xl mx-auto px-4 mt-4 relative">
       
-      {/* VISTA MÓVIL: Menú Desplegable (se muestra solo en pantallas pequeñas) */}
+      {/* VISTA MÓVIL: Menú Desplegable con contraste alto */}
       <div className="sm:hidden relative w-full z-30">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 font-bold text-gray-800 hover:bg-gray-100 transition-all shadow-sm active:scale-[0.99]"
+          className="w-full flex items-center justify-between bg-white border-2 border-gray-900 rounded-xl px-4 py-3 font-black text-gray-900 hover:bg-gray-50 transition-all shadow-md active:scale-[0.99]"
         >
           <span>Sección: {currentTab.label}</span>
           <svg 
             xmlns="http://www.w3.org/2000/svg" 
             fill="none" 
             viewBox="0 0 24 24" 
-            strokeWidth={2.5} 
+            strokeWidth={3} 
             stroke="currentColor" 
-            className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+            className={`w-4 h-4 text-gray-900 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
           </svg>
@@ -45,11 +44,11 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
 
         {isOpen && (
           <>
-            {/* Fondo transparente para detectar clics fuera del menú y cerrarlo */}
+            {/* Fondo transparente para cerrar al hacer clic fuera */}
             <div className="fixed inset-0 z-30" onClick={() => setIsOpen(false)}></div>
             
-            {/* Opciones del menú flotante */}
-            <div className="absolute left-0 right-0 mt-2 bg-white border border-gray-100 rounded-xl shadow-xl z-40 py-1.5 overflow-hidden">
+            {/* Opciones del menú flotante con reborde oscuro resaltado */}
+            <div className="absolute left-0 right-0 mt-2 bg-white border-2 border-gray-900 rounded-xl shadow-xl z-40 py-1.5 overflow-hidden">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
@@ -71,7 +70,7 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
         )}
       </div>
 
-      {/* VISTA ESCRITORIO: Pestañas horizontales (se oculta en móviles con 'hidden sm:flex') */}
+      {/* VISTA ESCRITORIO: Permanece idéntica y limpia */}
       <div className="hidden sm:flex gap-6 border-b border-gray-200 overflow-x-auto scrollbar-none pb-0.5">
         {tabs.map((tab) => (
           <button 
