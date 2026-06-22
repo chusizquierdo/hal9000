@@ -11,10 +11,9 @@ export default function SuggestionsPage({ onViewMovie }) {
     personQuery: '' 
   });
 
-  // Al montar el componente, definimos la página aleatoria y la cargamos
+  // Al montar el componente, cargamos la primera página (sin aleatoriedad)
   useEffect(() => {
-    const randomPage = Math.floor(Math.random() * 50) + 1;
-    setPage(randomPage);
+    setPage(1);
   }, []);
 
   const fetchMovies = async () => {
@@ -32,7 +31,6 @@ export default function SuggestionsPage({ onViewMovie }) {
       const res = await fetch(url);
       const data = await res.json();
       
-      // Filtrado adicional de seguridad
       const filteredResults = (data.results || []).filter(m => {
         const releaseDate = m.release_date || '9999-12-31';
         return releaseDate <= today;
@@ -65,13 +63,13 @@ export default function SuggestionsPage({ onViewMovie }) {
   };
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* Filtros Responsive */}
+    <div className="space-y-6 pb-12 px-4">
+      {/* Filtros Responsive: grid-cols-1 en móvil, se expande según pantalla */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
         <select 
           value={filters.genre} 
           onChange={(e) => {setFilters(p => ({...p, genre: e.target.value})); setPage(1);}} 
-          className="p-2 border rounded-xl bg-gray-50 outline-none"
+          className="p-2 border rounded-xl bg-gray-50 outline-none w-full"
         >
           <option value="">Todos los géneros</option>
           <option value="28">Acción</option><option value="12">Aventura</option><option value="16">Animación</option>
@@ -85,7 +83,7 @@ export default function SuggestionsPage({ onViewMovie }) {
           placeholder="Año (ej: 2020)" 
           value={filters.year} 
           onChange={(e) => {setFilters(p => ({...p, year: e.target.value})); setPage(1);}} 
-          className="p-2 border rounded-xl bg-gray-50 outline-none" 
+          className="p-2 border rounded-xl bg-gray-50 outline-none w-full" 
         />
         
         <input 
@@ -94,7 +92,7 @@ export default function SuggestionsPage({ onViewMovie }) {
           value={filters.personQuery} 
           onChange={(e) => setFilters(p => ({...p, personQuery: e.target.value}))} 
           onKeyDown={(e) => e.key === 'Enter' && handlePersonSearch()}
-          className="p-2 border rounded-xl bg-gray-50 outline-none" 
+          className="p-2 border rounded-xl bg-gray-50 outline-none w-full" 
         />
         
         <div className="flex gap-2">
@@ -117,7 +115,7 @@ export default function SuggestionsPage({ onViewMovie }) {
       {loading ? (
         <div className="text-center py-20 font-bold text-gray-400 animate-pulse">Buscando recomendaciones...</div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {movies.map(m => (
             <div 
               key={m.id} 
@@ -141,15 +139,15 @@ export default function SuggestionsPage({ onViewMovie }) {
       <div className="flex justify-between mt-8 pt-6 border-t border-gray-100">
         <button 
           disabled={page === 1} 
-          onClick={() => setPage(prev => prev - 1)} 
-          className="px-6 py-2 bg-gray-100 rounded-xl font-bold disabled:opacity-50 hover:bg-gray-200"
+          onClick={() => setPage(prev => Math.max(1, prev - 1))} 
+          className="px-6 py-2 bg-gray-100 rounded-xl font-bold disabled:opacity-50 hover:bg-gray-200 transition-colors"
         >
           Anterior
         </button>
         <span className="font-bold self-center text-gray-600">Página {page}</span>
         <button 
           onClick={() => setPage(prev => prev + 1)} 
-          className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700"
+          className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors"
         >
           Siguiente
         </button>

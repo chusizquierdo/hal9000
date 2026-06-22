@@ -5,7 +5,7 @@ import Upcoming from './Upcoming';
 import Rankings from './Rankings';
 import UserLeaderboard from './UserLeaderboard';
 import News from './News'; 
-import SuggestionsPage from './SuggestionsPage'; // Importación añadida
+import SuggestionsPage from './SuggestionsPage';
 
 export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, isAdmin, activeTab }) {
   const [items, setItems] = useState([]);
@@ -100,7 +100,7 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
       {userIdFilter && onBack && (
         <div className="mb-4">
           <button onClick={onBack} className="group inline-flex items-center gap-2 bg-white text-gray-600 hover:text-blue-600 px-4 py-2 rounded-xl text-xs font-bold border border-gray-200 shadow-sm hover:shadow transition-all">
-            <span className="inline-block transform group-hover:-translate-x-1 transition-transform">←</span> Volver al Feed Principal
+            <span className="inline-block transform group-hover:-translate-x-1 transition-transform">←</span> Volver atrás
           </button>
         </div>
       )}

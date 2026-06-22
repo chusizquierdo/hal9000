@@ -321,7 +321,7 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
 
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white rounded-3xl shadow-sm border border-gray-100">
-      <button onClick={onBack} className="text-blue-600 mb-6 font-bold hover:underline inline-flex items-center gap-1">← Volver al listado</button>
+      <button onClick={onBack} className="text-blue-600 mb-6 font-bold hover:underline inline-flex items-center gap-1">← Volver</button>
       
       <div className="flex gap-8 flex-col md:flex-row">
         <img src={`https://image.tmdb.org/t/p/w300${movieData.poster_path}`} alt={movieData.title || movieData.name} className="w-64 rounded-2xl shadow-lg shrink-0 object-cover bg-gray-100" />
@@ -428,7 +428,6 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
               )}
             </div>
 
-            {/* Proveedores de Streaming */}
             <div className="col-span-2 sm:col-span-3 border-t border-gray-200/60 pt-3 mt-1">
               <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wider mb-3">Disponible en</p>
               {watchProviders.length > 0 ? (

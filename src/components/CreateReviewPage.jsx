@@ -7,278 +7,105 @@ export default function CreateReviewPage({ onReviewCreated }) {
   const [comment, setComment] = useState('');
   const [rating, setRating] = useState(0); 
   const [loading, setLoading] = useState(false);
-  
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [watchlistId, setWatchlistId] = useState(null);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
 
-  // --- Lógica de Formato Markdown ---
   const applyFormat = (format) => {
     const textarea = document.getElementById('review-textarea');
     if (!textarea) return;
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const text = comment;
-    const selected = text.substring(start, end);
-    let replacement = '';
-    if (format === 'bold') replacement = `**${selected}**`;
-    if (format === 'italic') replacement = `*${selected}*`;
-    if (format === 'spoiler') replacement = `[spoiler]${selected}[/spoiler]`;
-    setComment(text.substring(0, start) + replacement + text.substring(end));
-    // Devolver el foco al textarea
+    const selected = comment.substring(start, end);
+    let replacement = format === 'bold' ? `**${selected}**` : format === 'italic' ? `*${selected}*` : `[spoiler]${selected}[/spoiler]`;
+    setComment(comment.substring(0, start) + replacement + comment.substring(end));
     setTimeout(() => textarea.focus(), 0);
   };
-  // ----------------------------------
 
-  useEffect(() => {
-    if (selectedMedia) {
-      checkWatchlist();
-    }
-  }, [selectedMedia]);
+  useEffect(() => { if (selectedMedia) checkWatchlist(); }, [selectedMedia]);
 
   const checkWatchlist = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
-    const { data: watchlistEntry } = await supabase
-      .from('watchlist')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('media_item_id', String(selectedMedia.id))
-      .maybeSingle();
-
-    if (watchlistEntry) {
-      setIsInWatchlist(true);
-      setWatchlistId(watchlistEntry.id);
-    } else {
-      setIsInWatchlist(false);
-      setWatchlistId(null);
-    }
+    const { data } = await supabase.from('watchlist').select('id').eq('user_id', user.id).eq('media_item_id', String(selectedMedia.id)).maybeSingle();
+    if (data) { setIsInWatchlist(true); setWatchlistId(data.id); }
   };
 
   const handleToggleWatchlist = async () => {
     setWatchlistLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setWatchlistLoading(false);
-      return;
-    }
-
-    const mediaIdStr = String(selectedMedia.id);
-
     if (isInWatchlist) {
-      const { error } = await supabase
-        .from('watchlist')
-        .delete()
-        .eq('id', watchlistId);
-      
-      if (!error) {
-        setIsInWatchlist(false);
-        setWatchlistId(null);
-      } else {
-        alert("Error al quitar de pendientes: " + error.message);
-      }
+      await supabase.from('watchlist').delete().eq('id', watchlistId);
+      setIsInWatchlist(false);
     } else {
-      const mediaType = selectedMedia.media_type === 'tv' ? 'tv' : 'movie';
-      const mediaTitle = selectedMedia.title || selectedMedia.name;
-
-      const { data: mediaData, error: mediaError } = await supabase
-        .from('media_items')
-        .upsert([{ 
-          api_id: mediaIdStr, 
-          title: mediaTitle,
-          media_type: mediaType,
-          poster_url: selectedMedia.poster_path ? `https://image.tmdb.org/t/p/w500${selectedMedia.poster_path}` : null
-        }], { onConflict: 'api_id' })
-        .select('id')
-        .single();
-
-      if (mediaError) {
-        setWatchlistLoading(false);
-        return alert("Error al registrar el título: " + mediaError.message);
-      }
-
-      const { data, error: watchlistError } = await supabase
-        .from('watchlist')
-        .insert({
-          user_id: user.id,
-          media_item_id: mediaData.id
-        })
-        .select('id')
-        .single();
-
-      if (!watchlistError && data) {
-        setIsInWatchlist(true);
-        setWatchlistId(data.id);
-      } else if (watchlistError) {
-        alert("Error al añadir a pendientes: " + watchlistError.message);
-      }
+      const { data: m } = await supabase.from('media_items').upsert({ api_id: String(selectedMedia.id), title: selectedMedia.title || selectedMedia.name, media_type: selectedMedia.media_type || 'movie' }, { onConflict: 'api_id' }).select('id').single();
+      const { data } = await supabase.from('watchlist').insert({ user_id: user.id, media_item_id: m.id }).select('id').single();
+      setIsInWatchlist(true); setWatchlistId(data.id);
     }
     setWatchlistLoading(false);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedMedia) return alert("Selecciona un contenido primero");
-    if (rating === 0) return alert("Por favor, selecciona una puntuación antes de publicar.");
-
+    if (!selectedMedia || rating === 0) return alert("Selecciona contenido y puntuación.");
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
-
-    const mediaIdStr = String(selectedMedia.id);
-    const mediaType = selectedMedia.media_type === 'tv' ? 'tv' : 'movie';
-    const mediaTitle = selectedMedia.title || selectedMedia.name;
-
-    let { data: existingMedia, error: searchError } = await supabase
-      .from('media_items')
-      .select('id')
-      .eq('api_id', mediaIdStr)
-      .maybeSingle();
-
-    let mediaIdToUse = existingMedia?.id;
-
-    if (!mediaIdToUse) {
-      const { data: newMedia, error: insertError } = await supabase
-        .from('media_items')
-        .insert([{ 
-          api_id: mediaIdStr,
-          title: mediaTitle,
-          media_type: mediaType,
-          poster_url: selectedMedia.poster_path ? `https://image.tmdb.org/t/p/w500${selectedMedia.poster_path}` : null
-        }])
-        .select('id')
-        .single();
-
-      if (insertError) {
-        setLoading(false);
-        return alert("Error al preparar el título: " + insertError.message);
-      }
-      mediaIdToUse = newMedia.id;
-    }
-
-    const { data: existingReview } = await supabase
-      .from('reviews')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('media_id', mediaIdToUse)
-      .maybeSingle();
-
-    let reviewError;
-    if (existingReview) {
-      const confirmUpdate = window.confirm("Ya habías publicado una reseña para esta película. ¿Deseas sustituirla por la actual?");
-      
-      if (confirmUpdate) {
-        const { error } = await supabase
-          .from('reviews')
-          .update({ comment: comment, rating: parseFloat(rating) })
-          .eq('id', existingReview.id);
-        reviewError = error;
-      } else {
-        setLoading(false);
-        return; 
-      }
+    const { data: media } = await supabase.from('media_items').select('id').eq('api_id', String(selectedMedia.id)).single();
+    
+    const { data: existing } = await supabase.from('reviews').select('id').eq('user_id', user.id).eq('media_id', media.id).maybeSingle();
+    
+    if (existing) {
+        if (window.confirm("¿Sustituir reseña anterior?")) await supabase.from('reviews').update({ comment, rating }).eq('id', existing.id);
+        else { setLoading(false); return; }
     } else {
-      const { error } = await supabase
-        .from('reviews')
-        .insert([{ 
-          user_id: user.id, 
-          media_id: mediaIdToUse, 
-          comment: comment, 
-          rating: parseFloat(rating) 
-        }]);
-      reviewError = error;
+        await supabase.from('reviews').insert({ user_id: user.id, media_id: media.id, comment, rating });
     }
-
     setLoading(false);
-    if (reviewError) {
-      alert("Error al guardar reseña: " + reviewError.message);
-    } else {
-      onReviewCreated(); 
-    }
+    onReviewCreated();
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-        <h2 className="text-3xl font-black text-gray-900 mb-8">Nueva Reseña</h2>
-        
+    <div className="max-w-2xl mx-auto px-4">
+      <div className="bg-white p-4 sm:p-8 rounded-3xl shadow-sm border border-gray-100">
+        <h2 className="text-2xl sm:text-3xl font-black text-gray-900 mb-6">Nueva Reseña</h2>
         {!selectedMedia ? (
           <div className="space-y-4">
-            <p className="text-gray-500">Busca la película o serie que quieres valorar:</p>
             <MediaSearch onSelect={setSelectedMedia} />
-            <button onClick={onReviewCreated} className="w-full py-3 mt-4 text-gray-500 font-bold hover:text-gray-800 transition-colors">
-              Cancelar y volver
-            </button>
+            <button onClick={onReviewCreated} className="w-full py-3 text-gray-500 font-bold">Cancelar</button>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 flex-wrap gap-4">
-              <div className="flex items-center gap-4">
-                {selectedMedia.poster_path && (
-                  <img src={`https://image.tmdb.org/t/p/w92${selectedMedia.poster_path}`} alt="poster" className="w-16 h-24 object-cover rounded-lg shadow-sm" />
-                )}
-                <div>
-                  <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Estás reseñando</p>
-                  <p className="text-xl font-bold text-gray-900">{selectedMedia.title || selectedMedia.name}</p>
-                </div>
+            <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-gray-50 rounded-2xl gap-4">
+              <div className="flex items-center gap-4 text-center sm:text-left">
+                {selectedMedia.poster_path && <img src={`https://image.tmdb.org/t/p/w92${selectedMedia.poster_path}`} className="w-12 h-16 object-cover rounded-lg" />}
+                <p className="font-bold text-gray-900 truncate">{selectedMedia.title || selectedMedia.name}</p>
               </div>
-              
-              <button 
-                type="button"
-                disabled={watchlistLoading}
-                onClick={handleToggleWatchlist}
-                className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all duration-200 ${
-                  isInWatchlist 
-                    ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
-                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                }`}
-              >
-                {watchlistLoading ? '...' : isInWatchlist ? '✓ En pendientes' : '⏳ Añadir a pendientes'}
+              <button type="button" onClick={handleToggleWatchlist} className="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold border">
+                {isInWatchlist ? '✓ En pendientes' : '⏳ Añadir a pendientes'}
               </button>
             </div>
             
             <div className="flex flex-col gap-2">
               <label className="text-sm font-bold text-gray-700">Comentario</label>
-              
-              {/* Barra de herramientas */}
-              <div className="flex gap-2 p-2 bg-gray-100 border border-gray-200 rounded-lg w-fit">
-                <button type="button" onClick={() => applyFormat('bold')} className="px-3 py-1 bg-white rounded text-xs font-bold hover:bg-gray-50 shadow-sm border border-gray-200">Negrita</button>
-                <button type="button" onClick={() => applyFormat('italic')} className="px-3 py-1 bg-white rounded text-xs italic hover:bg-gray-50 shadow-sm border border-gray-200">Cursiva</button>
-                <button type="button" onClick={() => applyFormat('spoiler')} className="px-3 py-1 bg-white rounded text-xs hover:bg-gray-50 shadow-sm border border-gray-200">Spoiler</button>
+              <div className="grid grid-cols-3 gap-2 w-full">
+                <button type="button" onClick={() => applyFormat('bold')} className="p-2 bg-gray-100 rounded text-xs font-bold">Negrita</button>
+                <button type="button" onClick={() => applyFormat('italic')} className="p-2 bg-gray-100 rounded text-xs italic">Cursiva</button>
+                <button type="button" onClick={() => applyFormat('spoiler')} className="p-2 bg-gray-100 rounded text-xs">Spoiler</button>
               </div>
-
-              <textarea 
-                id="review-textarea"
-                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-50 outline-none transition-all" 
-                placeholder="¿Qué te ha parecido?..." rows="4" value={comment} onChange={(e) => setComment(e.target.value)} required
-              />
+              <textarea id="review-textarea" className="w-full p-4 bg-gray-50 border rounded-2xl" rows="4" value={comment} onChange={(e) => setComment(e.target.value)} required />
             </div>
 
             <div className="flex flex-col gap-2">
               <label className="text-sm font-bold text-gray-700">Puntuación: {rating} / 10</label>
-              <div className="flex flex-wrap gap-1">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((star) => (
-                  <div key={star} className="relative flex text-2xl">
-                    <button type="button" onClick={() => setRating(star - 0.5)} className="absolute left-0 top-0 z-10 h-full w-1/2 cursor-pointer opacity-0" />
-                    <button type="button" onClick={() => setRating(star)} className="absolute right-0 top-0 z-10 h-full w-1/2 cursor-pointer opacity-0" />
-                    <span className={`${rating >= star ? 'text-yellow-400' : rating === star - 0.5 ? 'text-yellow-400/50' : 'text-gray-200'}`}>
-                      ★
-                    </span>
-                  </div>
+              <div className="flex flex-wrap gap-1 justify-center sm:justify-start">
+                {[...Array(10)].map((_, i) => (
+                    <button key={i} type="button" onClick={() => setRating(i + 1)} className={`text-2xl ${rating >= i + 1 ? 'text-yellow-400' : 'text-gray-200'}`}>★</button>
                 ))}
               </div>
             </div>
 
-            <div className="flex gap-4 pt-4">
-              <button type="submit" disabled={loading} className="flex-[2] bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md shadow-blue-200">
-                {loading ? 'Publicando...' : 'Publicar Reseña'}
-              </button>
-              <button type="button" onClick={() => setSelectedMedia(null)} className="flex-1 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition-all">
-                Cambiar
-              </button>
-            </div>
-            <button type="button" onClick={onReviewCreated} className="text-gray-400 hover:text-red-500 font-medium text-sm transition-colors">
-              Cancelar y salir
+            <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold">
+              {loading ? 'Publicando...' : 'Publicar Reseña'}
             </button>
           </form>
         )}

@@ -62,7 +62,7 @@ export default function Watchlist({ onViewMovie, userId, onBack }) {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-4">
-      {/* Botón de retorno chulo para la Watchlist */}
+      {/* Botón de retorno adaptado para el historial de navegación */}
       {onBack && (
         <div className="mb-4">
           <button 
@@ -70,7 +70,7 @@ export default function Watchlist({ onViewMovie, userId, onBack }) {
             className="group inline-flex items-center gap-2 bg-white text-gray-600 hover:text-blue-600 px-4 py-2 rounded-xl text-xs font-bold border border-gray-200 shadow-sm hover:shadow transition-all"
           >
             <span className="inline-block transform group-hover:-translate-x-1 transition-transform">←</span> 
-            Volver al Feed Principal
+            Volver
           </button>
         </div>
       )}
