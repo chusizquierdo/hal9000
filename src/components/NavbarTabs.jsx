@@ -35,6 +35,12 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
           Próximos Trailers
         </button>
         <button 
+          onClick={() => onTabChange('suggestions')} 
+          className={`pb-2 font-bold whitespace-nowrap transition-colors ${activeTab === 'suggestions' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          Sugerencias
+        </button>
+        <button 
           onClick={() => onTabChange('news')} 
           className={`pb-2 font-bold whitespace-nowrap transition-colors ${activeTab === 'news' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
         >

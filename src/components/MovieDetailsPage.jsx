@@ -427,6 +427,28 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
                 <p className="text-gray-400 text-xs italic font-medium">Información sobre el elenco no disponible.</p>
               )}
             </div>
+
+            {/* Proveedores de Streaming */}
+            <div className="col-span-2 sm:col-span-3 border-t border-gray-200/60 pt-3 mt-1">
+              <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wider mb-3">Disponible en</p>
+              {watchProviders.length > 0 ? (
+                <div className="flex flex-wrap gap-3">
+                  {watchProviders.map((provider) => (
+                    <div key={provider.provider_id} className="flex items-center gap-2 bg-white border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm">
+                      <img 
+                        src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`} 
+                        alt={provider.provider_name} 
+                        className="w-6 h-6 rounded-md" 
+                      />
+                      <span className="text-xs font-bold text-gray-700">{provider.provider_name}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-400 text-xs italic font-medium">No disponible en plataformas de streaming actualmente.</p>
+              )}
+            </div>
+            
           </div>
         </div>
       </div>

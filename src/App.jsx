@@ -166,42 +166,36 @@ export default function App() {
         <nav className="bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
             <h1 
-              className="text-2xl font-black text-gray-900 tracking-tighter cursor-pointer hover:text-blue-600 transition-colors flex items-center gap-2" 
+              className="text-xl sm:text-2xl font-black text-gray-900 tracking-tighter cursor-pointer hover:text-blue-600 transition-colors flex items-center gap-1 sm:gap-2" 
               onClick={navigateToDashboard}
             >
               HAL<span className="text-blue-600">9000</span>
-              {isAdmin && <span className="text-[10px] bg-red-100 text-red-600 font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wide">Admin</span>}
+              {isAdmin && <span className="hidden sm:inline text-[10px] bg-red-100 text-red-600 font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wide">Admin</span>}
             </h1>
             
-            <div className="flex gap-3 sm:gap-4 items-center">
+            <div className="flex gap-2 sm:gap-4 items-center">
               {!session.isGuest && (
                 <button 
                   onClick={() => { setCurrentView('create'); setIsDropdownOpen(false); }} 
-                  className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 sm:px-5 py-2 rounded-xl font-bold hover:from-blue-700 hover:to-indigo-700 active:scale-95 transition-all shadow-md hover:shadow-lg text-xs sm:text-sm tracking-tight border border-blue-500/10"
+                  className="inline-flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 sm:px-5 py-2 rounded-xl font-bold hover:from-blue-700 hover:to-indigo-700 active:scale-95 transition-all shadow-md hover:shadow-lg text-[11px] sm:text-sm tracking-tight border border-blue-500/10"
                 >
-                  <svg 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    fill="none" 
-                    viewBox="0 0 24 24" 
-                    strokeWidth={2.5} 
-                    stroke="currentColor" 
-                    className="w-4 h-4"
-                  >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5 sm:w-4 sm:h-4">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                   </svg>
-                  Nueva Reseña
+                  <span className="hidden sm:inline">Nueva Reseña</span>
+                  <span className="sm:hidden">Reseña</span>
                 </button>
               )}
 
               <div className="relative">
                 <button 
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex items-center justify-center w-10 h-10 rounded-full focus:outline-none transition-all duration-200 border-2 border-transparent hover:border-blue-500 hover:shadow-md"
+                  className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full focus:outline-none transition-all duration-200 border-2 border-transparent hover:border-blue-500 hover:shadow-md"
                 >
                   {profile.avatar_url ? (
                     <img src={profile.avatar_url} alt="User Avatar" className="w-full h-full rounded-full object-cover" />
                   ) : (
-                    <div className="w-full h-full rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-black uppercase tracking-wider shadow-inner">
+                    <div className="w-full h-full rounded-full bg-blue-600 text-white flex items-center justify-center text-xs sm:text-sm font-black uppercase tracking-wider shadow-inner">
                       {profile.username[0]}
                     </div>
                   )}
@@ -268,7 +262,6 @@ export default function App() {
           </div>
         </nav>
 
-        {/* Las pestañas quedan dentro del header para que sean siempre visibles */}
         <NavbarTabs activeTab={activeTab} onTabChange={handleTabChange} />
         
       </header>
