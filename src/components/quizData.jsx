@@ -167,7 +167,7 @@ export const ALL_QUIZ_QUESTIONS = [
     respuestaCorrecta: 'b',
     tituloPelicula: 'Titanic',
     imagenUrlFallback: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=700&q=80',
-    curiosidad: "James Cameron realizó más inmersiones al verdadero pecio del Titanic que los propios pasajeros originales del barco."
+    curiosidad: "James Cameron ha realizado a fecha de 2026 un total de 33 inmersiones al Titanic."
   },
   {
     id: 13,
