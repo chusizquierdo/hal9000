@@ -5,6 +5,9 @@ import { supabase } from "../supabaseClient";
 // Tu API Key de TMDb activa para las fotos reales de Hollywood tanto en local como en producción
 const TMDB_API_KEY = '8005d659cd2756fbe0a09eaba113b878';
 
+// MODIFICACIÓN: Límite de tiempo optimizado a 10 segundos por pregunta
+const TIME_LIMIT_PER_QUESTION = 15;
+
 const generateRandomQuizSet = () => {
   return [...ALL_QUIZ_QUESTIONS]
     .sort(() => Math.random() - 0.5)
@@ -19,7 +22,10 @@ export default function QuizGame({ onBack }) {
   const [score, setScore] = useState(0);
   const [gameFinished, setGameFinished] = useState(false);
   
-  // INTEGRACIÓN DE SEGURIDAD: Estados para verificar si el usuario está registrado
+  // INTEGRACIÓN DE TIEMPO: Estado para controlar los segundos restantes
+  const [timeLeft, setTimeLeft] = useState(TIME_LIMIT_PER_QUESTION);
+
+  // Estados para la gestión de seguridad de usuarios
   const [currentUser, setCurrentUser] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
@@ -28,7 +34,7 @@ export default function QuizGame({ onBack }) {
   const defaultFallback = 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=1200&q=80';
   const [movieImage, setMovieImage] = useState(defaultFallback);
 
-  // INTEGRACIÓN DE SEGURIDAD: Comprobamos el estado de autenticación al montar el componente
+  // Comprobamos el estado de autenticación al montar el componente
   useEffect(() => {
     const checkUserAuthentication = async () => {
       try {
@@ -43,9 +49,25 @@ export default function QuizGame({ onBack }) {
     checkUserAuthentication();
   }, []);
 
+  // INTEGRACIÓN DE TIEMPO: Efecto de cuenta regresiva por segundo
+  useEffect(() => {
+    if (isAnswered || gameFinished || !currentUser || checkingAuth) return;
+
+    if (timeLeft === 0) {
+      setIsAnswered(true);
+      setSelectedOption(null); // Registrar que no hubo respuesta a tiempo
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      setTimeLeft(prev => prev - 1);
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [timeLeft, isAnswered, gameFinished, currentUser, checkingAuth]);
+
   // Búsqueda inteligente por título en la API de cine
   useEffect(() => {
-    // Si no está registrado o está cargando la seguridad, no gastamos peticiones de API
     if (checkingAuth || !currentUser || !currentQuestion) return;
 
     setMovieImage(defaultFallback);
@@ -78,7 +100,6 @@ export default function QuizGame({ onBack }) {
 
   const saveQuizScore = async () => {
     try {
-      // Usamos el usuario ya validado en el estado local de seguridad
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('quiz_score')
@@ -117,6 +138,7 @@ export default function QuizGame({ onBack }) {
   const handleNext = () => {
     setSelectedOption(null);
     setIsAnswered(false);
+    setTimeLeft(TIME_LIMIT_PER_QUESTION);
     
     if (currentQuestionIndex + 1 < questions.length) {
       setCurrentQuestionIndex(prev => prev + 1);
@@ -133,9 +155,9 @@ export default function QuizGame({ onBack }) {
     setIsAnswered(false);
     setScore(0);
     setGameFinished(false);
+    setTimeLeft(TIME_LIMIT_PER_QUESTION);
   };
 
-  // 1. PANTALLA DE CARGA: Mientras consulta a Supabase si el usuario tiene permiso
   if (checkingAuth) {
     return (
       <div className="w-full max-w-2xl mx-auto bg-gray-950 border border-gray-800 p-12 rounded-3xl text-center text-white font-mono shadow-2xl">
@@ -146,38 +168,25 @@ export default function QuizGame({ onBack }) {
     );
   }
 
-  // 2. PANTALLA DE BLOQUEO: Si el usuario NO está registrado o no ha iniciado sesión
   if (!currentUser) {
     return (
       <div className="w-full max-w-2xl mx-auto bg-gray-950 border border-red-900 p-8 rounded-3xl text-center text-white font-mono shadow-2xl relative overflow-hidden">
-        {/* Decoración cibernética de alerta */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-red-600 shadow-[0_0_15px_#dc2626]"></div>
-        
         <span className="text-6xl block mt-4 animate-bounce">⚠️</span>
-        <h2 className="text-2xl font-black text-red-500 mt-5 tracking-widest uppercase">
-          Acceso Denegado
-        </h2>
-        
+        <h2 className="text-2xl font-black text-red-500 mt-5 tracking-widest uppercase">Acceso Denegado</h2>
         <div className="bg-red-950/20 border border-red-900/60 p-6 rounded-2xl my-6 text-left">
-          <p className="text-xs text-red-400 uppercase tracking-widest font-black mb-2">
-            Protocolo de seguridad HAL-9000:
-          </p>
+          <p className="text-xs text-red-400 uppercase tracking-widest font-black mb-2">Protocolo de seguridad HAL-9000:</p>
           <p className="text-sm text-gray-300 font-sans leading-relaxed">
             Este simulador de trivia almacena registros globales de rendimiento. Para poder calibrar tus respuestas y sincronizar tu puntuación con los leaderboards de la plataforma, es estrictamente obligatorio disponer de una cuenta de usuario activa.
           </p>
         </div>
-
-        <button 
-          onClick={onBack} 
-          className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 px-8 rounded-xl transition-all uppercase tracking-wider text-xs shadow-[0_0_15px_rgba(220,38,38,0.4)]"
-        >
+        <button onClick={onBack} className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 px-8 rounded-xl transition-all uppercase tracking-wider text-xs shadow-[0_0_15px_rgba(220,38,38,0.4)]">
           ⬅ Volver al Panel Central
         </button>
       </div>
     );
   }
 
-  // 3. PANTALLA DE FIN DE JUEGO (Solo accesible para registrados)
   if (gameFinished || !currentQuestion) {
     return (
       <div className="w-full max-w-2xl mx-auto bg-gray-950 border border-gray-800 p-8 rounded-3xl text-center text-white font-mono shadow-2xl">
@@ -205,17 +214,43 @@ export default function QuizGame({ onBack }) {
     );
   }
 
-  // 4. JUEGO ACTIVO (Solo accesible para registrados)
+  const timePercentage = (timeLeft / TIME_LIMIT_PER_QUESTION) * 100;
+
   return (
     <div className="w-full max-w-3xl mx-auto bg-gray-950 border border-gray-800 rounded-3xl text-white font-mono shadow-2xl overflow-hidden">
       
       {/* Cabecera - Barra de Estado */}
-      <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/40">
+      <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/40 relative">
         <div className="flex items-center gap-2.5">
-          <div className="w-3 h-3 rounded-full bg-red-600 animate-pulse border-2 border-red-900 shadow-[0_0_10px_#dc2626]"></div>
+          <div className={`w-3 h-3 rounded-full border-2 shadow-lg ${
+            timeLeft <= 3 
+              ? 'bg-red-600 animate-ping border-red-900 shadow-red-600' 
+              : 'bg-red-600 animate-pulse border-2 border-red-900 shadow-[0_0_10px_#dc2626]'
+          }`}></div>
           <span className="text-xs font-black tracking-widest text-gray-300 uppercase">HAL-9000 TRIVIA SYSTEM V.2</span>
         </div>
-        <span className="text-xs bg-gray-800 px-3 py-1 rounded-full font-bold border border-gray-700">Pregunta: {currentQuestionIndex + 1}/{questions.length}</span>
+        
+        {/* Marcador numérico de tiempo */}
+        <div className="flex items-center gap-4">
+          <span className={`text-xs font-black px-2.5 py-1 rounded-md border ${
+            timeLeft <= 3 
+              ? 'bg-red-950/80 text-red-400 border-red-800 animate-pulse' 
+              : 'bg-gray-900 text-gray-400 border-gray-800'
+          }`}>
+            ⏰ {timeLeft}s
+          </span>
+          <span className="text-xs bg-gray-800 px-3 py-1 rounded-full font-bold border border-gray-700">Pregunta: {currentQuestionIndex + 1}/{questions.length}</span>
+        </div>
+
+        {/* Barra de progreso dinámica superior */}
+        <div className="absolute bottom-0 left-0 h-[2px] bg-gray-800 w-full">
+          <div 
+            className={`h-full transition-all duration-1000 ease-linear ${
+              timeLeft <= 3 ? 'bg-red-600 shadow-[0_0_8px_#dc2626]' : 'bg-blue-500'
+            }`}
+            style={{ width: `${timePercentage}%` }}
+          ></div>
+        </div>
       </div>
 
       {/* Visor Multimedia */}
@@ -302,9 +337,19 @@ export default function QuizGame({ onBack }) {
         {isAnswered && (
           <div className="mt-8 p-6 bg-gray-900 border-2 border-gray-800 rounded-3xl animate-fade-in shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]">
             <div className="flex items-center gap-3">
-              <div className={`w-3 h-3 rounded-full ${selectedOption === currentQuestion.respuestaCorrecta ? 'bg-emerald-500' : 'bg-red-600'}`}></div>
+              <div className={`w-3 h-3 rounded-full ${
+                selectedOption === null 
+                  ? 'bg-amber-500' 
+                  : selectedOption === currentQuestion.respuestaCorrecta 
+                  ? 'bg-emerald-500' 
+                  : 'bg-red-600'
+              }`}></div>
               <p className="text-xs font-black uppercase tracking-widest text-gray-300">
-                {selectedOption === currentQuestion.respuestaCorrecta ? "🟢 Acceso Concedido - Base de Datos Actualizada" : "🔴 Error de Sistema - Desviación Detectada"}
+                {selectedOption === null 
+                  ? "⚠️ Tiempo Agotado - Desconexión de Emergencia"
+                  : selectedOption === currentQuestion.respuestaCorrecta 
+                  ? "🟢 Acceso Concedido - Base de Datos Actualizada" 
+                  : "🔴 Error de Sistema - Desviación Detectada"}
               </p>
             </div>
             
