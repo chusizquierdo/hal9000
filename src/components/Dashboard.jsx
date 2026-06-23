@@ -32,11 +32,13 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
         let year = 0;
         let title = m.title;
         let genres = [];
+        let poster_url = m.poster_url;
         
         try {
           const type = m.media_type === 'tv' ? 'tv' : 'movie';
           const res = await fetch(`https://api.themoviedb.org/3/${type}/${m.api_id}?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES`);
           const data = await res.json();
+          if (!poster_url && data.poster_path) poster_url = `https://image.tmdb.org/t/p/w500${data.poster_path}`;
           const date = data.release_date || data.first_air_date;
           year = date ? parseInt(date.substring(0, 4)) : 0;
           title = data.title || data.name;
@@ -49,6 +51,7 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
         
         return { 
           ...m, 
+          poster_url,
           avg, 
           firstReview: userReview || sortedReviews[0], 
           year, 

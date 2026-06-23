@@ -38,7 +38,12 @@ export default function CreateReviewPage({ onReviewCreated }) {
       await supabase.from('watchlist').delete().eq('id', watchlistId);
       setIsInWatchlist(false);
     } else {
-      const { data: m } = await supabase.from('media_items').upsert({ api_id: String(selectedMedia.id), title: selectedMedia.title || selectedMedia.name, media_type: selectedMedia.media_type || 'movie' }, { onConflict: 'api_id' }).select('id').single();
+      const { data: m } = await supabase.from('media_items').upsert({ 
+        api_id: String(selectedMedia.id), 
+        title: selectedMedia.title || selectedMedia.name, 
+        media_type: selectedMedia.media_type || 'movie',
+        poster_url: selectedMedia.poster_path ? `https://image.tmdb.org/t/p/w500${selectedMedia.poster_path}` : null
+      }, { onConflict: 'api_id' }).select('id').single();
       const { data } = await supabase.from('watchlist').insert({ user_id: user.id, media_item_id: m.id }).select('id').single();
       setIsInWatchlist(true); setWatchlistId(data.id);
     }
@@ -50,7 +55,15 @@ export default function CreateReviewPage({ onReviewCreated }) {
     if (!selectedMedia || rating === 0) return alert("Selecciona contenido y puntuación.");
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
-    const { data: media } = await supabase.from('media_items').select('id').eq('api_id', String(selectedMedia.id)).single();
+    
+    const { data: media, error: mediaError } = await supabase.from('media_items').upsert({ 
+        api_id: String(selectedMedia.id), 
+        title: selectedMedia.title || selectedMedia.name, 
+        media_type: selectedMedia.media_type || 'movie',
+        poster_url: selectedMedia.poster_path ? `https://image.tmdb.org/t/p/w500${selectedMedia.poster_path}` : null
+    }, { onConflict: 'api_id' }).select('id').single();
+    
+    if (mediaError || !media) { setLoading(false); return alert("Error al registrar el contenido."); }
     
     const { data: existing } = await supabase.from('reviews').select('id').eq('user_id', user.id).eq('media_id', media.id).maybeSingle();
     
