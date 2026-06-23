@@ -6,7 +6,7 @@ import { supabase } from "../supabaseClient";
 const TMDB_API_KEY = '8005d659cd2756fbe0a09eaba113b878';
 
 // MODIFICACIÓN: Límite de tiempo optimizado a 10 segundos por pregunta
-const TIME_LIMIT_PER_QUESTION = 15;
+const TIME_LIMIT_PER_QUESTION = 20;
 
 const generateRandomQuizSet = () => {
   return [...ALL_QUIZ_QUESTIONS]

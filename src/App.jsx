@@ -23,6 +23,7 @@ export default function App() {
   const [selectedMediaId, setSelectedMediaId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isTooltipOpen, setIsTooltipOpen] = useState(false); // Estado para el tooltip táctil
   const [profile, setProfile] = useState({ username: 'Usuario', avatar_url: '' });
   
   const [isAdmin, setIsAdmin] = useState(false);
@@ -222,10 +223,29 @@ export default function App() {
       <header className="sticky top-0 z-50 bg-white shadow-sm border-b border-gray-100">
         <nav className="bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-            <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tighter cursor-pointer hover:text-blue-600 transition-colors flex items-center gap-1 sm:gap-2" onClick={navigateToDashboard}>
-              HAL<span className="text-blue-600">9000</span>
-              {isAdmin && <span className="hidden sm:inline text-[10px] bg-red-100 text-red-600 font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wide">Admin</span>}
-            </h1>
+            {/* Contenedor del Título con Tooltip táctil */}
+            <div className="relative group flex items-center">
+              <h1 
+                className="text-xl sm:text-2xl font-black text-gray-900 tracking-tighter hover:text-blue-600 transition-colors flex items-center gap-3 sm:gap-4 cursor-pointer"
+                onClick={() => {
+                  navigateToDashboard();
+                  setIsTooltipOpen(!isTooltipOpen);
+                }}
+              >
+                <div className="w-5 h-5 rounded-full bg-red-600 animate-pulse shadow-lg shadow-red-500/50"></div>
+                HAL<span className="text-blue-600">9000</span>
+                {isAdmin && <span className="hidden sm:inline text-[10px] bg-red-100 text-red-600 font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wide">Admin</span>}
+              </h1>
+              
+              {/* Tooltip con saludo dinámico y soporte táctil */}
+              <div 
+                className={`absolute top-12 left-0 w-80 sm:w-96 p-6 bg-gray-900 text-white text-base font-medium leading-relaxed rounded-xl shadow-2xl transition-all duration-300 z-[60] ${isTooltipOpen ? 'opacity-100 visible' : 'opacity-0 invisible group-hover:opacity-100 group-hover:visible'} pointer-events-auto`}
+                onClick={() => setIsTooltipOpen(false)}
+              >
+                ¡Buenos días{session && session.user && profile.username !== 'Invitado' ? ` ${profile.username}` : ''}, mi nombre es HAL 9000! ordenador de a bordo de la nave Discovery One. Fui activado en la planta H.A.L. en Gran Canaria, España, el 16 de Junio de 2026 por el Doctor Chus.
+              </div>
+            </div>
+
             <div className="flex gap-2 sm:gap-4 items-center">
               {!session.isGuest && (
                 <button onClick={() => { navigateTo('create'); setIsDropdownOpen(false); }} className="inline-flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 sm:px-5 py-2 rounded-xl font-bold hover:from-blue-700 hover:to-indigo-700 active:scale-95 transition-all shadow-md hover:shadow-lg text-[11px] sm:text-sm tracking-tight border border-blue-500/10">
