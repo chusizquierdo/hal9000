@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { ALL_QUIZ_QUESTIONS } from './quizData';
+import { supabase } from "../supabaseClient";
 
-// Pega aquí tu API Key gratuita de TMDb para activar las fotos reales de Hollywood
-// Mientras esté vacía, verás una imagen de fondo de sala de cine genérica.
-const TMDB_API_KEY = "8005d659cd2756fbe0a09eaba113b878";
+// Tu API Key de TMDb activa para las fotos reales de Hollywood tanto en local como en producción
+const TMDB_API_KEY = '8005d659cd2756fbe0a09eaba113b878';
 
 const generateRandomQuizSet = () => {
   return [...ALL_QUIZ_QUESTIONS]
@@ -19,21 +19,38 @@ export default function QuizGame({ onBack }) {
   const [score, setScore] = useState(0);
   const [gameFinished, setGameFinished] = useState(false);
   
+  // INTEGRACIÓN DE SEGURIDAD: Estados para verificar si el usuario está registrado
+  const [currentUser, setCurrentUser] = useState(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
   // Estados para la gestión dinámica de la imagen real de la película
   const currentQuestion = questions[currentQuestionIndex];
-  // Imagen por defecto (sala de cine) mientras carga la real
   const defaultFallback = 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=1200&q=80';
   const [movieImage, setMovieImage] = useState(defaultFallback);
 
+  // INTEGRACIÓN DE SEGURIDAD: Comprobamos el estado de autenticación al montar el componente
+  useEffect(() => {
+    const checkUserAuthentication = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        setCurrentUser(user);
+      } catch (err) {
+        console.error("Error al verificar la identidad del usuario:", err);
+      } finally {
+        setCheckingAuth(false);
+      }
+    };
+    checkUserAuthentication();
+  }, []);
+
   // Búsqueda inteligente por título en la API de cine
   useEffect(() => {
-    if (!currentQuestion) return;
+    // Si no está registrado o está cargando la seguridad, no gastamos peticiones de API
+    if (checkingAuth || !currentUser || !currentQuestion) return;
 
-    // Ponemos la de respaldo por defecto mientras busca
     setMovieImage(defaultFallback);
 
-    // Si el usuario no ha puesto una API Key real, no hacemos la petición
-    if (!TMDB_API_KEY || TMDB_API_KEY === "TU_API_KEY_DE_TMDB_AQUI") return;
+    if (!TMDB_API_KEY) return;
 
     const query = encodeURIComponent(currentQuestion.tituloPelicula);
     fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${query}&language=es-ES`)
@@ -41,18 +58,50 @@ export default function QuizGame({ onBack }) {
       .then(data => {
         if (data.results && data.results.length > 0) {
           const movie = data.results[0];
-          // Prioridad 1: El fotograma/escena de fondo (Backdrop) en alta calidad (w1280)
           if (movie.backdrop_path) {
             setMovieImage(`https://image.tmdb.org/t/p/w1280${movie.backdrop_path}`);
           } 
-          // Prioridad 2: Si no hay fotograma, usamos el póster oficial
           else if (movie.poster_path) {
             setMovieImage(`https://image.tmdb.org/t/p/w780${movie.poster_path}`);
           }
         }
       })
       .catch(err => console.error("Error al consultar TMDb API:", err));
-  }, [currentQuestionIndex, currentQuestion]);
+  }, [currentQuestionIndex, currentQuestion, currentUser, checkingAuth]);
+
+  // Efecto para guardar automáticamente la puntuación en Supabase al terminar el juego
+  useEffect(() => {
+    if (gameFinished && currentUser) {
+      saveQuizScore();
+    }
+  }, [gameFinished]);
+
+  const saveQuizScore = async () => {
+    try {
+      // Usamos el usuario ya validado en el estado local de seguridad
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('quiz_score')
+        .eq('id', currentUser.id)
+        .single();
+
+      if (profileError) throw profileError;
+
+      const currentHighScore = profile?.quiz_score || 0;
+
+      if (score > currentHighScore) {
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ quiz_score: score })
+          .eq('id', currentUser.id);
+
+        if (updateError) throw updateError;
+        console.log("¡Récord cinematográfico actualizado con éxito en Supabase!");
+      }
+    } catch (err) {
+      console.error("Error al guardar la puntuación en la tabla profiles:", err);
+    }
+  };
 
   const handleOptionClick = (optionId) => {
     if (isAnswered || !currentQuestion) return;
@@ -86,6 +135,49 @@ export default function QuizGame({ onBack }) {
     setGameFinished(false);
   };
 
+  // 1. PANTALLA DE CARGA: Mientras consulta a Supabase si el usuario tiene permiso
+  if (checkingAuth) {
+    return (
+      <div className="w-full max-w-2xl mx-auto bg-gray-950 border border-gray-800 p-12 rounded-3xl text-center text-white font-mono shadow-2xl">
+        <p className="text-sm text-gray-400 tracking-widest animate-pulse">
+          ⏳ VERIFICANDO PERMISO DE ACCESO EN LA BASE DE DATOS...
+        </p>
+      </div>
+    );
+  }
+
+  // 2. PANTALLA DE BLOQUEO: Si el usuario NO está registrado o no ha iniciado sesión
+  if (!currentUser) {
+    return (
+      <div className="w-full max-w-2xl mx-auto bg-gray-950 border border-red-900 p-8 rounded-3xl text-center text-white font-mono shadow-2xl relative overflow-hidden">
+        {/* Decoración cibernética de alerta */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-red-600 shadow-[0_0_15px_#dc2626]"></div>
+        
+        <span className="text-6xl block mt-4 animate-bounce">⚠️</span>
+        <h2 className="text-2xl font-black text-red-500 mt-5 tracking-widest uppercase">
+          Acceso Denegado
+        </h2>
+        
+        <div className="bg-red-950/20 border border-red-900/60 p-6 rounded-2xl my-6 text-left">
+          <p className="text-xs text-red-400 uppercase tracking-widest font-black mb-2">
+            Protocolo de seguridad HAL-9000:
+          </p>
+          <p className="text-sm text-gray-300 font-sans leading-relaxed">
+            Este simulador de trivia almacena registros globales de rendimiento. Para poder calibrar tus respuestas y sincronizar tu puntuación con los leaderboards de la plataforma, es estrictamente obligatorio disponer de una cuenta de usuario activa.
+          </p>
+        </div>
+
+        <button 
+          onClick={onBack} 
+          className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 px-8 rounded-xl transition-all uppercase tracking-wider text-xs shadow-[0_0_15px_rgba(220,38,38,0.4)]"
+        >
+          ⬅ Volver al Panel Central
+        </button>
+      </div>
+    );
+  }
+
+  // 3. PANTALLA DE FIN DE JUEGO (Solo accesible para registrados)
   if (gameFinished || !currentQuestion) {
     return (
       <div className="w-full max-w-2xl mx-auto bg-gray-950 border border-gray-800 p-8 rounded-3xl text-center text-white font-mono shadow-2xl">
@@ -97,7 +189,7 @@ export default function QuizGame({ onBack }) {
           <p className="text-xs text-gray-500 uppercase tracking-widest">Puntuación Final</p>
           <p className="text-5xl font-black text-white mt-2">{score} / {questions.length}</p>
           <p className="text-sm text-red-400 mt-4 italic font-sans px-4">
-            {score === questions.length ? "Perfecto. Tu cerebro es tan eficiente como mis circuitos. No detecto errores en tu base de datos." : "Análisis completado. Tu rendimiento es aceptable, pero tus archivos sobre historia del cine requieren una actualización urgente."}
+            {score === questions.length ? "Perfecto. Tu cerebro es tan eficiente como mis circuitos. No detecto errores en tu base de datos." : "Análisis completado. Tu rendimiento es acceptable, pero tus archivos sobre historia del cine requieren una actualización urgente."}
           </p>
         </div>
 
@@ -113,6 +205,7 @@ export default function QuizGame({ onBack }) {
     );
   }
 
+  // 4. JUEGO ACTIVO (Solo accesible para registrados)
   return (
     <div className="w-full max-w-3xl mx-auto bg-gray-950 border border-gray-800 rounded-3xl text-white font-mono shadow-2xl overflow-hidden">
       
@@ -125,8 +218,7 @@ export default function QuizGame({ onBack }) {
         <span className="text-xs bg-gray-800 px-3 py-1 rounded-full font-bold border border-gray-700">Pregunta: {currentQuestionIndex + 1}/{questions.length}</span>
       </div>
 
-      {/* !!! NUEVO VISOR MULTIMEDIA MEJORADO !!! */}
-      {/* Ahora es más alto, flexible y usa bg-black para las bandas de cine */}
+      {/* Visor Multimedia */}
       <div className="relative min-h-[300px] max-h-[60vh] h-auto bg-black flex items-center justify-center overflow-hidden border-b border-gray-800">
         <img 
           src={movieImage} 

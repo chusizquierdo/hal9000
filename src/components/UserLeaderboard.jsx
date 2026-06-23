@@ -2,52 +2,64 @@ import { useState, useEffect } from 'react';
 import { supabase } from "../supabaseClient";
 
 export default function UserLeaderboard({ onViewMovie }) {
-  const [users, setUsers] = useState([]);
+  // Pestaña activa: 'critics' o 'quiz'
+  const [activeTab, setActiveTab] = useState('critics');
+  
+  const [usersCritics, setUsersCritics] = useState([]);
+  const [usersQuiz, setUsersQuiz] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Estados para controlar el desplegable y las reseñas del usuario seleccionado
+  // Estados para controlar el desplegable y las reseñas del usuario seleccionado (Sección Críticos)
   const [expandedUserId, setExpandedUserId] = useState(null);
   const [userReviews, setUserReviews] = useState({}); // Guarda { userId: [reseñas] }
   const [loadingReviews, setLoadingReviews] = useState(false);
 
   useEffect(() => {
-    fetchLeaderboard();
+    fetchLeaderboardData();
   }, []);
 
-  const fetchLeaderboard = async () => {
+  const fetchLeaderboardData = async () => {
     try {
       setLoading(true);
       
-      // Consultamos la tabla profiles y pedimos el conteo de registros asociados en reviews
+      // Consultamos los perfiles incluyendo el conteo de reviews y la nueva columna 'quiz_score'
       const { data, error: dbError } = await supabase
         .from('profiles')
         .select(`
           id,
           username,
+          quiz_score,
           reviews (count)
         `);
 
       if (dbError) throw dbError;
 
+      // Mapeamos los datos base comunes
       const formattedUsers = data.map(user => ({
         id: user.id,
         name: user.username || 'Usuario Anónimo',
-        reviewsCount: user.reviews?.[0]?.count || 0
+        reviewsCount: user.reviews?.[0]?.count || 0,
+        quizScore: user.quiz_score || 0 // Puntuación del quiz (aciertos)
       }));
 
-      // Ordenación descendente de mayor a menor número de críticas
-      const sorted = formattedUsers.sort((a, b) => b.reviewsCount - a.reviewsCount);
-      setUsers(sorted);
+      // 1. Ordenación para el Ranking de Críticos (por número de críticas)
+      const sortedCritics = [...formattedUsers].sort((a, b) => b.reviewsCount - a.reviewsCount);
+      setUsersCritics(sortedCritics);
+
+      // 2. Ordenación para el Ranking del Quiz (por mayor cantidad de aciertos)
+      const sortedQuiz = [...formattedUsers].sort((a, b) => b.quizScore - a.quizScore);
+      setUsersQuiz(sortedQuiz);
+
     } catch (err) {
-      console.error("Error al cargar el leaderboard:", err);
-      setError("No se pudo sincronizar el ranking de críticos.");
+      console.error("Error al cargar los leaderboards:", err);
+      setError("No se pudo sincronizar los rankings de la plataforma.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Función para expandir/colapsar y cargar las reseñas específicas de un usuario
+  // Función para expandir/colapsar y cargar las reseñas específicas de un usuario (Solo críticos)
   const handleUserClick = async (userId) => {
     if (expandedUserId === userId) {
       setExpandedUserId(null);
@@ -56,13 +68,11 @@ export default function UserLeaderboard({ onViewMovie }) {
 
     setExpandedUserId(userId);
 
-    // Si ya tenemos las reseñas guardadas localmente, evitamos otra petición a Supabase
     if (userReviews[userId]) return;
 
     try {
       setLoadingReviews(true);
       
-      // MODIFICACIÓN: Solicitamos también el 'id' de media_items para poder navegar a él
       const { data, error: reviewsError } = await supabase
         .from('reviews')
         .select(`
@@ -109,7 +119,7 @@ export default function UserLeaderboard({ onViewMovie }) {
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto p-12 text-center text-gray-500 font-medium my-6 bg-white rounded-3xl border border-gray-100 shadow-sm">
-        ⏳ Sincronizando el ranking de críticos de HAL9000...
+        ⏳ Sincronizando los sistemas de clasificación de HAL9000...
       </div>
     );
   }
@@ -122,25 +132,61 @@ export default function UserLeaderboard({ onViewMovie }) {
     );
   }
 
+  // Selección del set de datos según la pestaña activa
+  const currentDataset = activeTab === 'critics' ? usersCritics : usersQuiz;
+
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-8 bg-white rounded-3xl shadow-sm border border-gray-100 my-6 mx-4 sm:mx-auto">
-      <div className="mb-6 pb-5 border-b border-gray-100">
-        <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
-          🔥 Críticos de la Comunidad
-        </h2>
-        <p className="text-xs sm:text-sm text-gray-400 font-medium mt-1">
-          Haz clic sobre el recuadro de cualquier crítico para desplegar y leer detalladamente su historial de reseñas.
-        </p>
+      
+      {/* Cabecera del Componente */}
+      <div className="mb-6 pb-2 border-b border-gray-100 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+            📊 Panel Global de Rankings
+          </h2>
+          <p className="text-xs sm:text-sm text-gray-400 font-medium mt-1">
+            {activeTab === 'critics' 
+              ? "Haz clic sobre un crítico para desplegar y leer detalladamente su historial de reseñas."
+              : "Historial de transmisiones del sistema. Los usuarios con las mentes cinéfilas más eficientes."
+            }
+          </p>
+        </div>
+
+        {/* Selector de Pestañas Estilizado */}
+        <div className="flex bg-gray-100 p-1 rounded-2xl self-start md:self-center border border-gray-200/50">
+          <button
+            onClick={() => setActiveTab('critics')}
+            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+              activeTab === 'critics' 
+                ? 'bg-white text-gray-900 shadow-sm' 
+                : 'text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            🔥 Críticos
+          </button>
+          <button
+            onClick={() => setActiveTab('quiz')}
+            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+              activeTab === 'quiz' 
+                ? 'bg-white text-gray-900 shadow-sm' 
+                : 'text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            🏆 Ranking Quiz
+          </button>
+        </div>
       </div>
 
+      {/* Renderizado Dinámico del Listado */}
       <div className="flex flex-col gap-4">
-        {users.length === 0 ? (
-          <p className="text-gray-400 text-sm italic py-6 text-center">No hay usuarios registrados todavía.</p>
+        {currentDataset.length === 0 ? (
+          <p className="text-gray-400 text-sm italic py-6 text-center">No hay registros cargados todavía.</p>
         ) : (
-          users.map((user, index) => {
+          currentDataset.map((user, index) => {
             const isTop3 = index < 3;
-            const isExpanded = expandedUserId === user.id;
+            const isExpanded = activeTab === 'critics' && expandedUserId === user.id;
             
+            // Asignación de color de fondo premium para el podio
             const bgStyles = index === 0 
               ? "from-amber-50/50 to-transparent border-amber-100/80 shadow-amber-50/30" 
               : index === 1 
@@ -156,10 +202,12 @@ export default function UserLeaderboard({ onViewMovie }) {
                   isExpanded ? 'border-blue-200 ring-4 ring-blue-50/40' : 'hover:border-gray-300'
                 }`}
               >
-                {/* Fila del Crítico */}
+                {/* Fila Principal de la Tarjeta */}
                 <div 
-                  onClick={() => handleUserClick(user.id)}
-                  className={`flex items-center justify-between p-4 sm:p-5 bg-gradient-to-r ${bgStyles} cursor-pointer transition-colors hover:bg-gray-50/60`}
+                  onClick={() => activeTab === 'critics' && handleUserClick(user.id)}
+                  className={`flex items-center justify-between p-4 sm:p-5 bg-gradient-to-r ${bgStyles} ${
+                    activeTab === 'critics' ? 'cursor-pointer hover:bg-gray-50/60' : ''
+                  }`}
                 >
                   <div className="flex items-center gap-4 min-w-0">
                     <div className="w-10 flex justify-center items-center shrink-0">
@@ -171,29 +219,46 @@ export default function UserLeaderboard({ onViewMovie }) {
                       }`}>
                         {user.name}
                       </span>
-                      <span className={`text-xs transition-transform duration-300 ${
-                        isExpanded ? 'rotate-180 text-blue-500 font-bold' : 'text-gray-400'
-                      }`}>
-                        ▼
-                      </span>
+                      {activeTab === 'critics' && (
+                        <span className={`text-xs transition-transform duration-300 ${
+                          isExpanded ? 'rotate-180 text-blue-500 font-bold' : 'text-gray-400'
+                        }`}>
+                          ▼
+                        </span>
+                      )}
                     </div>
                   </div>
 
+                  {/* Bloque Derecho Dinámico según la Pestaña */}
                   <div className="text-right shrink-0 ml-2">
-                    <span className={`text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm ${
-                      index === 0 
-                        ? 'bg-amber-100 text-amber-900' 
-                        : isTop3 
-                        ? 'bg-gray-100 text-gray-800' 
-                        : 'bg-gray-50 text-gray-500'
-                    }`}>
-                      {user.reviewsCount} {user.reviewsCount === 1 ? 'reseña' : 'reseñas'}
-                    </span>
+                    {activeTab === 'critics' ? (
+                      <span className={`text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm ${
+                        index === 0 
+                          ? 'bg-amber-100 text-amber-900' 
+                          : isTop3 
+                          ? 'bg-gray-100 text-gray-800' 
+                          : 'bg-gray-50 text-gray-500'
+                      }`}>
+                        {user.reviewsCount} {user.reviewsCount === 1 ? 'reseña' : 'reseñas'}
+                      </span>
+                    ) : (
+                      <span className={`text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm ${
+                        index === 0 
+                          ? 'bg-amber-500 text-white' 
+                          : index === 1 
+                          ? 'bg-slate-400 text-white' 
+                          : index === 2 
+                          ? 'bg-amber-600 text-white' 
+                          : 'bg-red-50 text-red-600 border border-red-100'
+                      }`}>
+                        {user.quizScore} {user.quizScore === 1 ? 'acierto' : 'aciertos'}
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                {/* Sección Desplegable */}
-                {isExpanded && (
+                {/* Sección Desplegable Exclusiva para Críticos */}
+                {activeTab === 'critics' && isExpanded && (
                   <div className="bg-slate-50/60 border-t border-gray-100 p-4 sm:p-6 transition-all">
                     {loadingReviews && !userReviews[user.id] ? (
                       <p className="text-sm text-gray-400 italic text-center py-4 font-medium">⏳ Recuperando críticas de la base de datos relacional...</p>
@@ -212,7 +277,6 @@ export default function UserLeaderboard({ onViewMovie }) {
                           <tbody className="divide-y divide-gray-100 text-gray-700">
                             {userReviews[user.id].map((review) => (
                               <tr key={review.id} className="hover:bg-slate-50/40 transition-colors align-top">
-                                {/* MODIFICACIÓN: Añadida acción onClick y estilos hover interactivos */}
                                 <td 
                                   className="p-4 sm:p-5 font-bold text-gray-900 min-w-[160px] leading-snug cursor-pointer hover:text-blue-600 hover:underline transition-colors"
                                   onClick={() => review.media_items?.id && onViewMovie(review.media_items.id)}
