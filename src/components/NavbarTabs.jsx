@@ -17,7 +17,8 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
 
   const gameTabs = [
     { id: 'quiz', label: 'Quiz' },
-    { id: 'pixel', label: 'Pixelado' }
+    { id: 'pixel', label: 'Pixelado' },
+    { id: 'timeline', label: 'Cronología' }
   ];
 
   // Identificar qué texto mostrar en la cabecera del botón móvil
@@ -29,7 +30,7 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
   if (activeTab === 'contact') currentLabel = 'Contactar Admin';
 
   // Saber si el usuario está dentro de alguna sección de juego
-  const isGameActive = activeTab === 'quiz' || activeTab === 'pixel';
+  const isGameActive = activeTab === 'quiz' || activeTab === 'pixel' || activeTab === 'timeline';
 
   return (
     <div className="max-w-7xl mx-auto px-4 mt-4 relative">
@@ -160,7 +161,7 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
                     activeTab === subTab.id ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
                 >
-                  {subTab.label === 'Quiz' ? '🏆 Trivial Quiz' : '🎬 Pixelado'}
+                  {subTab.id === 'quiz' ? '🏆 Trivial Quiz' : subTab.id === 'pixel' ? '🎬 Pixelado' : '⏱️ Cronología'}
                 </button>
               ))}
             </div>

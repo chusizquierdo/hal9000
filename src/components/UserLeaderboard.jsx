@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { supabase } from "../supabaseClient";
 
 export default function UserLeaderboard({ onViewMovie }) {
-  // Pestaña activa: 'critics', 'quiz' o 'pixel'
+  // Pestaña activa: 'critics', 'quiz', 'pixel' o 'timeline'
   const [activeTab, setActiveTab] = useState('critics');
   
   const [usersCritics, setUsersCritics] = useState([]);
   const [usersQuiz, setUsersQuiz] = useState([]);
   const [usersPixel, setUsersPixel] = useState([]); 
+  const [usersTimeline, setUsersTimeline] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -31,6 +32,7 @@ export default function UserLeaderboard({ onViewMovie }) {
           username,
           quiz_score,
           pixel_score,
+          timeline_score,
           reviews (count)
         `);
 
@@ -41,7 +43,8 @@ export default function UserLeaderboard({ onViewMovie }) {
         name: user.username || 'Usuario Anónimo',
         reviewsCount: user.reviews?.[0]?.count || 0,
         quizScore: user.quiz_score || 0, 
-        pixelScore: user.pixel_score || 0 
+        pixelScore: user.pixel_score || 0,
+        timelineScore: user.timeline_score || 0
       }));
 
       // 1. Ordenación para el Ranking de Críticos (por número de críticas)
@@ -55,6 +58,10 @@ export default function UserLeaderboard({ onViewMovie }) {
       // 3. Ordenación para el Ranking de Pixelado (por puntuación)
       const sortedPixel = [...formattedUsers].sort((a, b) => b.pixelScore - a.pixelScore);
       setUsersPixel(sortedPixel);
+
+      // 4. Ordenación para el Ranking de Cronología (por puntuación temporal)
+      const sortedTimeline = [...formattedUsers].sort((a, b) => b.timelineScore - a.timelineScore);
+      setUsersTimeline(sortedTimeline);
 
     } catch (err) {
       console.error("Error al cargar los leaderboards:", err);
@@ -136,7 +143,12 @@ export default function UserLeaderboard({ onViewMovie }) {
     );
   }
 
-  const currentDataset = activeTab === 'critics' ? usersCritics : activeTab === 'quiz' ? usersQuiz : usersPixel;
+  // Selección dinámica del dataset activo incluyendo 'timeline'
+  const currentDataset = 
+    activeTab === 'critics' ? usersCritics : 
+    activeTab === 'quiz' ? usersQuiz : 
+    activeTab === 'pixel' ? usersPixel : 
+    usersTimeline;
 
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-8 bg-white rounded-3xl shadow-sm border border-gray-100 my-6 mx-4 sm:mx-auto">
@@ -152,16 +164,18 @@ export default function UserLeaderboard({ onViewMovie }) {
               ? "Haz clic sobre un crítico para desplegar y leer detalladamente su historial de reseñas."
               : activeTab === 'quiz'
               ? "Historial de transmisiones del sistema. Los usuarios con las mentes cinéfilas más eficientes en el Trivial."
-              : "Clasificación de agudeza visual. ¿Quién es el mejor reconociendo rostros en Pixelado?"
+              : activeTab === 'pixel'
+              ? "Clasificación de agudeza visual. ¿Quién es el mejor reconociendo rostros en Pixelado?"
+              : "Líneas de tiempo maestras. Historial de ordenación cronológica perfecta en el cine global."
             }
           </p>
         </div>
 
         {/* Selector de Pestañas Estilizado */}
-        <div className="flex flex-wrap bg-gray-100 p-1 rounded-2xl self-start md:self-center border border-gray-200/50">
+        <div className="flex flex-wrap bg-gray-100 p-1 rounded-2xl self-start md:self-center border border-gray-200/50 gap-y-1">
           <button
             onClick={() => setActiveTab('critics')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+            className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
               activeTab === 'critics' 
                 ? 'bg-white text-gray-900 shadow-sm' 
                 : 'text-gray-500 hover:text-gray-800'
@@ -171,7 +185,7 @@ export default function UserLeaderboard({ onViewMovie }) {
           </button>
           <button
             onClick={() => setActiveTab('quiz')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+            className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
               activeTab === 'quiz' 
                 ? 'bg-white text-gray-900 shadow-sm' 
                 : 'text-gray-500 hover:text-gray-800'
@@ -181,13 +195,23 @@ export default function UserLeaderboard({ onViewMovie }) {
           </button>
           <button
             onClick={() => setActiveTab('pixel')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+            className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
               activeTab === 'pixel' 
                 ? 'bg-white text-gray-900 shadow-sm' 
                 : 'text-gray-500 hover:text-gray-800'
             }`}
           >
             🎬 Pixelado
+          </button>
+          <button
+            onClick={() => setActiveTab('timeline')}
+            className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+              activeTab === 'timeline' 
+                ? 'bg-white text-gray-900 shadow-sm' 
+                : 'text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            ⏱️ Cronología
           </button>
         </div>
       </div>
@@ -280,6 +304,20 @@ export default function UserLeaderboard({ onViewMovie }) {
                           : 'bg-indigo-50 text-indigo-600 border border-indigo-100'
                       }`}>
                         {user.pixelScore} pts
+                      </span>
+                    )}
+
+                    {activeTab === 'timeline' && (
+                      <span className={`text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm ${
+                        index === 0 
+                          ? 'bg-emerald-500 text-white' 
+                          : index === 1 
+                          ? 'bg-emerald-400 text-white' 
+                          : index === 2 
+                          ? 'bg-emerald-600 text-white' 
+                          : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                      }`}>
+                        {user.timelineScore} pts
                       </span>
                     )}
                   </div>

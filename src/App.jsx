@@ -15,6 +15,7 @@ import NavbarTabs from './components/NavbarTabs';
 import ContactAdminPage from './components/ContactAdminPage'; 
 import QuizGame from './components/QuizGame'; // INTEGRACIÓN DEL COMPONENTE DEL JUEGO
 import PixelGame from './components/PixelGame'; // NUEVA INTEGRACIÓN DEL JUEGO PIXELADO
+import TimelineGame from './components/TimelineGame'; // INTEGRACIÓN DEL NUEVO JUEGO DE CRONOLOGÍA
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -204,6 +205,8 @@ export default function App() {
       setCurrentView('quiz');
     } else if (tabName === 'pixel') {
       setCurrentView('pixel');
+    } else if (tabName === 'timeline') {
+      setCurrentView('timeline');
     } else {
       setCurrentView('dashboard');
     }
@@ -343,6 +346,10 @@ export default function App() {
         {/* RENDERIZADO DEL NUEVO JUEGO PIXELADO */}
         {currentView === 'pixel' && (
           <PixelGame onBack={navigateToDashboard} />
+        )}
+        {/* RENDERIZADO DEL NUEVO JUEGO DE CRONOLOGÍA */}
+        {currentView === 'timeline' && (
+          <TimelineGame onBack={navigateToDashboard} />
         )}
       </main>
     </div>
