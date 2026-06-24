@@ -98,9 +98,7 @@ const POPULAR_MOVIES_POOL = [
   "Fast & Furious 9", "Fast & Furious X", "Misión: Imposible - Sentencia Mortal Parte 1", "Misión: Imposible 8"
 ];
 
-const x = POPULAR_MOVIES_POOL.map(function (a) {
-    console.log(a.IMAGE_BASE_URL);
-});
+
 export default function TimelineGame({ onBack }) {
   const [movies, setMovies] = useState([]);
   const [currentRound, setCurrentRound] = useState(1);
