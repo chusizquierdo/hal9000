@@ -69,7 +69,7 @@ const HOLLYWOOD_ACTORS = [
   "Jacob Elordi", "Paul Mescal", "Jenna Ortega", "Rebecca Ferguson"
 ];
 
-export default function PixelGame() {
+export default function PixelGame({ onBack }) {
   // Estados de control de la partida
   const [currentQuestion, setCurrentQuestion] = useState(1);
   const [accumulatedScore, setAccumulatedScore] = useState(0);
@@ -87,16 +87,36 @@ export default function PixelGame() {
   const [savingPoints, setSavingPoints] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
+  // Estados esenciales de protección y sesión de usuario
+  const [currentUser, setCurrentUser] = useState(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
   const timerRef = useRef(null);
   const TOTAL_QUESTIONS = 20;
 
+  // Comprobamos el estado de autenticación al montar el componente
   useEffect(() => {
-    initNewSession();
+    const checkUserAuthentication = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        setCurrentUser(user);
+        if (user) {
+          initNewSession();
+        }
+      } catch (err) {
+        console.error("Error al verificar la identidad del usuario:", err);
+      } finally {
+        setCheckingAuth(false);
+      }
+    };
+    checkUserAuthentication();
     return () => clearInterval(timerRef.current);
   }, []);
 
-  // Lógica de cronómetro calibrada a 20 segundos totales (40 ticks de 500ms reduciendo de 3 en 3)
+  // Lógica de cronómetro calibrada a 20 segundos totales
   useEffect(() => {
+    if (checkingAuth || !currentUser) return;
+
     if (gameState === 'playing') {
       timerRef.current = setInterval(() => {
         
@@ -123,7 +143,7 @@ export default function PixelGame() {
     }
 
     return () => clearInterval(timerRef.current);
-  }, [gameState]);
+  }, [gameState, currentUser, checkingAuth]);
 
   const initNewSession = () => {
     setCurrentQuestion(1);
@@ -207,10 +227,9 @@ export default function PixelGame() {
   const saveFinalScoreToSupabase = async (finalPoints) => {
     try {
       setSavingPoints(true);
-      const { data: { session }, error: sErr } = await supabase.auth.getSession();
-      if (sErr || !session || session.isGuest) return;
+      if (!currentUser) return;
 
-      const uid = session.user.id;
+      const uid = currentUser.id;
       const { data: prof, error: pErr } = await supabase
         .from('profiles')
         .select('pixel_score')
@@ -233,175 +252,269 @@ export default function PixelGame() {
     }
   };
 
+  // PANTALLAS DE CONTROL DE ACCESO GLOBAL (ESTILO HAL-9000 EXACTO)
+  if (checkingAuth) {
+    return (
+      <div className="w-full max-w-2xl mx-auto bg-gray-950 border border-gray-800 p-12 rounded-3xl text-center text-white font-mono shadow-2xl">
+        <p className="text-sm text-gray-400 tracking-widest animate-pulse">
+          ⏳ VERIFICANDO PERMISO DE ACCESO EN LA BASE DE DATOS...
+        </p>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <div className="w-full max-w-2xl mx-auto bg-gray-950 border border-red-900 p-8 rounded-3xl text-center text-white font-mono shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-1 bg-red-600 shadow-[0_0_15px_#dc2626]"></div>
+        <span className="text-6xl block mt-4 animate-bounce">⚠️</span>
+        <h2 className="text-2xl font-black text-red-500 mt-5 tracking-widest uppercase">Acceso Denegado</h2>
+        <div className="bg-red-950/20 border border-red-900/60 p-6 rounded-2xl my-6 text-left">
+          <p className="text-xs text-red-400 uppercase tracking-widest font-black mb-2">Protocolo de seguridad HAL-9000:</p>
+          <p className="text-sm text-gray-300 font-sans leading-relaxed">
+            Este simulador de trivia almacena registros globales de rendimiento. Para poder calibrar tus respuestas y sincronizar tu puntuación con los leaderboards de la plataforma, es estrictamente obligatorio disponer de una cuenta de usuario activa.
+          </p>
+        </div>
+        <button onClick={onBack} className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 px-8 rounded-xl transition-all uppercase tracking-wider text-xs shadow-[0_0_15px_rgba(220,38,38,0.4)]">
+          ⬅ Volver al Panel Central
+        </button>
+      </div>
+    );
+  }
+
   if (gameState === 'loading') {
     return (
-      <div className="max-w-2xl mx-auto p-12 text-center text-gray-500 font-bold my-6 bg-white rounded-3xl border border-gray-100 shadow-sm animate-pulse">
-        🎬 Cargando pregunta {currentQuestion} de {TOTAL_QUESTIONS}...
+      <div className="w-full max-w-2xl mx-auto bg-gray-950 border border-gray-800 p-12 rounded-3xl text-center text-white font-mono shadow-2xl">
+        <p className="text-sm text-gray-400 tracking-widest animate-pulse">
+          🎬 CARGANDO ROSTRO {currentQuestion} DE {TOTAL_QUESTIONS}...
+        </p>
       </div>
     );
   }
 
   if (gameState === 'summary') {
     return (
-      <div className="max-w-xl mx-auto p-8 text-center bg-white rounded-3xl shadow-xl border border-gray-100 my-8">
-        <span className="text-5xl">🏆</span>
-        <h2 className="text-2xl font-black text-gray-900 mt-4 tracking-tight">¡Ronda de 20 Preguntas Completada!</h2>
-        <p className="text-gray-500 font-medium mt-1.5">Has demostrado tus conocimientos sobre los rostros más célebres de Hollywood.</p>
+      <div className="w-full max-w-2xl mx-auto bg-gray-950 border border-gray-800 p-8 rounded-3xl text-center text-white font-mono shadow-2xl">
+        <span className="text-6xl">🏆</span>
+        <h2 className="text-3xl font-black text-red-500 mt-5 tracking-widest uppercase">Análisis Terminado</h2>
+        <p className="text-gray-400 mt-3 text-sm">HAL-9000 ha evaluado tus conocimientos sobre fisonomía de estrellas.</p>
         
-        <div className="my-6 p-6 bg-blue-50/60 rounded-2xl border border-blue-100 max-w-sm mx-auto">
-          <p className="text-xs text-blue-600 font-extrabold uppercase tracking-widest">Puntuación Total de la Partida</p>
-          <p className="text-4xl font-black text-blue-700 mt-1">{accumulatedScore} <span className="text-sm font-bold text-blue-500">pts</span></p>
+        <div className="bg-gray-900 border border-gray-800 p-8 rounded-2xl my-8">
+          <p className="text-xs text-gray-500 uppercase tracking-widest">Puntuación Total Conseguida</p>
+          <p className="text-5xl font-black text-white mt-2">{accumulatedScore} <span className="text-sm font-bold text-gray-400">pts</span></p>
+          <p className="text-sm text-red-400 mt-4 italic font-sans px-4">
+            {accumulatedScore >= 1500 ? "Excelente agudeza visual. Tus registros coinciden con mis bancos de memoria principal sin desviaciones." : "Análisis de escaneo completado. Tus respuestas son aceptables, pero tus archivos ópticos requieren una calibración inmediata."}
+          </p>
         </div>
 
-        <button
-          onClick={initNewSession}
-          className="w-full bg-gray-900 text-white font-black py-4 rounded-xl shadow-md hover:bg-gray-800 transition-all active:scale-[0.98]"
-        >
-          Jugar Otra Ronda ➔
-        </button>
+        <div className="flex flex-col sm:flex-row gap-4">
+          <button onClick={initNewSession} className="w-full bg-red-950 border border-red-800 hover:bg-red-900 text-white p-4 rounded-xl font-bold transition-colors uppercase tracking-wider text-xs">
+            Jugar Otra Ronda ➔
+          </button>
+          <button onClick={onBack} className="w-full bg-gray-900 border border-gray-800 hover:bg-gray-800 hover:border-gray-700 text-gray-400 p-4 rounded-xl font-bold transition-colors uppercase tracking-wider text-xs">
+            Salir al Panel Central
+          </button>
+        </div>
       </div>
     );
   }
 
+  // CÁLCULO DE PROGRESO DE PUNTOS PARA LA BARRA (120 PTS MÁXIMO)
+  const scorePercentage = (scoreEarned / 120) * 100;
+
   return (
-    <div className="max-w-2xl mx-auto p-4 sm:p-6 bg-white rounded-3xl shadow-sm border border-gray-100 my-6">
+    <div className="w-full max-w-3xl mx-auto bg-gray-950 border border-gray-800 rounded-3xl text-white font-mono shadow-2xl overflow-hidden">
       
-      {/* CABECERA */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-100 pb-4 mb-5 gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="bg-gray-900 text-white text-[11px] font-black px-2 py-0.5 rounded-md">
-              Pregunta {currentQuestion} / {TOTAL_QUESTIONS}
-            </span>
-          </div>
-          <h2 className="text-xl font-black text-gray-900 tracking-tight mt-1 flex items-center gap-1.5">
-            🎬 Pixelado de Hollywood
-          </h2>
+      {/* Cabecera - Barra de Estado */}
+      <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/40 relative">
+        <div className="flex items-center gap-2.5">
+          <button 
+            onClick={onBack} 
+            className="bg-gray-900 hover:bg-gray-800 text-gray-400 border border-gray-800 p-2 rounded-xl transition-all mr-1"
+            title="Volver"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+            </svg>
+          </button>
+          <div className={`w-3 h-3 rounded-full border-2 shadow-lg ${
+            scoreEarned <= 40 
+              ? 'bg-red-600 animate-ping border-red-900 shadow-red-600' 
+              : 'bg-red-600 animate-pulse border-2 border-red-900 shadow-[0_0_10px_#dc2626]'
+          }`}></div>
+          <span className="text-xs font-black tracking-widest text-gray-300 uppercase hidden sm:inline">HAL-9000 PIXEL SYSTEM V.1</span>
+          <span className="text-xs font-black tracking-widest text-gray-300 uppercase sm:hidden">HAL-9000</span>
         </div>
         
-        <div className="flex items-center justify-between sm:justify-end gap-4">
-          <div className="bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200/60 text-right">
-            <span className="block text-[10px] text-gray-400 font-extrabold uppercase">Total acumulado</span>
-            <span className="text-sm font-black text-gray-800">{accumulatedScore} pts</span>
+        {/* Marcador numérico de puntos y progreso de rondas */}
+        <div className="flex items-center gap-3">
+          <div className="bg-gray-900 px-3 py-1 rounded-md border border-gray-800 text-right">
+            <span className="text-[9px] text-gray-500 block uppercase font-bold leading-tight">Acumulado</span>
+            <span className="text-xs font-bold text-gray-300">{accumulatedScore} pts</span>
           </div>
-
-          <div className={`px-4 py-2 rounded-xl text-sm font-black transition-all ${
-            scoreEarned > 60 ? 'bg-blue-50 border border-blue-100 text-blue-700' : 'bg-red-50 border border-red-100 text-red-600 animate-pulse'
+          <span className={`text-xs font-black px-2.5 py-1.5 rounded-md border ${
+            scoreEarned <= 40 
+              ? 'bg-red-950/80 text-red-400 border-red-800 animate-pulse' 
+              : 'bg-gray-900 text-amber-400 border-gray-800'
           }`}>
             ⭐ {scoreEarned} pts
-          </div>
+          </span>
+          <span className="text-xs bg-gray-800 px-2.5 py-1.5 rounded-md font-bold border border-gray-700">Rostro: {currentQuestion}/{TOTAL_QUESTIONS}</span>
+        </div>
+
+        {/* Barra de progreso dinámica superior basada en los puntos restantes */}
+        <div className="absolute bottom-0 left-0 h-[2px] bg-gray-800 w-full">
+          <div 
+            className={`h-full transition-all duration-500 ease-linear ${
+              scoreEarned <= 40 ? 'bg-red-600 shadow-[0_0_8px_#dc2626]' : 'bg-blue-500'
+            }`}
+            style={{ width: `${scorePercentage}%` }}
+          ></div>
         </div>
       </div>
 
-      {errorMessage && (
-        <div className="bg-red-50 text-red-700 border border-red-100 p-4 rounded-2xl text-xs font-bold mb-4 text-center">
-          {errorMessage}
-        </div>
-      )}
-
-      {/* RECUADRO DE ROSTRO AGRANDADO Y TOTALMENTE RESPONSIVE */}
-      <div className="relative w-full max-w-sm h-80 sm:h-[420px] mx-auto bg-gray-950 rounded-2xl overflow-hidden shadow-lg border-4 border-gray-900 mb-6 flex items-center justify-center">
+      {/* Visor de Rostro de Hollywood */}
+      <div className="relative min-h-[320px] max-h-[60vh] h-auto bg-black flex items-center justify-center overflow-hidden border-b border-gray-800">
         {targetActor && (
           <img
             src={`${IMAGE_BASE_URL}${targetActor.profile_path}`}
-            alt="Rostro en análisis"
-            className="w-full h-full object-cover select-none pointer-events-none transition-all duration-300"
+            alt="Escaneo de Rostro"
+            className="w-full h-full object-contain transition-all duration-300 select-none pointer-events-none"
             style={{ filter: `blur(${blurAmount}px)` }}
           />
         )}
         
-        {/* Capas superpuestas de estados visuales */}
+        {/* Superposiciones de estado en el ojo central */}
         {gameState === 'won' && (
-          <div className="absolute inset-0 bg-green-600/15 flex items-center justify-center p-4">
-            <span className="bg-white text-green-700 font-black text-xs sm:text-sm px-4 py-2 rounded-xl shadow-lg border border-green-200 uppercase tracking-wider animate-bounce">
-              ¡Respuesta Correcta! (+{scoreEarned} pts)
+          <div className="absolute inset-0 bg-emerald-950/40 backdrop-blur-xs flex items-center justify-center p-4">
+            <span className="bg-emerald-600 text-white font-extrabold text-xs sm:text-sm px-5 py-2.5 rounded-xl shadow-xl uppercase tracking-wider border border-emerald-500">
+              🟢 Acceso Concedido (+{scoreEarned} pts)
             </span>
           </div>
         )}
         
         {gameState === 'lost' && (
-          <div className="absolute inset-0 bg-red-600/15 flex items-center justify-center p-4">
-            <span className="bg-white text-red-700 font-black text-xs sm:text-sm px-4 py-2 rounded-xl shadow-lg border border-red-200 uppercase tracking-wider">
-              {scoreEarned === 0 ? "¡Tiempo Agotado! ⏱️" : "Respuesta Incorrecta"}
+          <div className="absolute inset-0 bg-rose-950/40 backdrop-blur-xs flex items-center justify-center p-4">
+            <span className="bg-rose-600 text-white font-extrabold text-xs sm:text-sm px-5 py-2.5 rounded-xl shadow-xl uppercase tracking-wider border border-rose-500">
+              {scoreEarned === 0 ? "⚠️ Tiempo Agotado - Desconexión" : "🔴 Error de Sistema - Desviación"}
             </span>
           </div>
         )}
       </div>
 
-      {/* SECCIÓN DE PISTA RESTRINGIDA A 60 PUNTOS O MENOS */}
-      {movieHint && (
-        <div className="mb-5 text-center">
-          {!showHint ? (
-            <button
-              disabled={gameState !== 'playing' || scoreEarned > 60}
-              onClick={() => setShowHint(true)}
-              className="inline-flex items-center gap-1.5 text-xs font-black px-4 py-2 rounded-xl transition-all shadow-sm border border-gray-200 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 bg-amber-50 hover:bg-amber-100/80 text-amber-800"
-            >
-              {scoreEarned > 60 
-                ? `💡 Pista bloqueada (Disponible a los 60 pts o menos)` 
-                : '💡 ¡Pista Disponible! Solicitar producción famosa'
-              }
-            </button>
-          ) : (
-            <div className="bg-amber-50/70 border border-amber-200/60 rounded-xl p-3 max-w-md mx-auto text-center animate-fade-in">
-              <p className="text-[11px] text-amber-700 font-extrabold uppercase tracking-wide">Pista de Actuación</p>
-              <p className="text-xs sm:text-sm text-amber-900 font-bold mt-0.5">
-                Es muy conocido/a por su participación en: <span className="font-black underline italic">"{movieHint}"</span>
+      {/* Cuerpo del Cuestionario */}
+      <div className="p-6 sm:p-8">
+        <div className="bg-gray-900 border border-gray-800 p-5 rounded-2xl text-center">
+          <h3 className="text-xs sm:text-sm font-bold tracking-widest text-red-500 uppercase">
+            SISTEMA DE RECONOCIMIENTO BIOMÉTRICO
+          </h3>
+          <p className="text-xs text-gray-400 font-sans mt-1">
+            Analiza el patrón pixelado e identifica a la celebridad de Hollywood antes de que se agoten los puntos.
+          </p>
+        </div>
+
+        {/* SECCIÓN DE PISTA ESTILO HAL-9000 */}
+        {movieHint && (
+          <div className="mt-4 text-center">
+            {!showHint ? (
+              <button
+                disabled={gameState !== 'playing' || scoreEarned > 60}
+                onClick={() => setShowHint(true)}
+                className="w-full bg-gray-900 border border-gray-800 hover:border-amber-600 hover:bg-gray-800 text-gray-400 p-3 rounded-xl text-xs font-bold transition-all disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-gray-800"
+              >
+                {scoreEarned > 60 
+                  ? `💡 Pista de producción bloqueada (Disponible a los 60 pts)` 
+                  : '💡 Solicitar análisis de archivos cinematográficos asociados'
+                }
+              </button>
+            ) : (
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-left animate-fade-in">
+                <p className="text-[10px] text-amber-500 font-black uppercase tracking-widest">Base de datos de producciones:</p>
+                <p className="text-xs sm:text-sm text-gray-200 font-sans mt-1 leading-relaxed">
+                  El sujeto posee registros de actividad principal en la obra: <span className="text-white font-bold italic underline">"{movieHint}"</span>
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Listado de Opciones de Respuesta */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+          {options.map((name, index) => {
+            const isCorrect = name === targetActor?.name;
+            const isSelected = name === selectedOption;
+            const optionLetter = String.fromCharCode(65 + index); // Genera A, B, C, D
+            
+            let buttonStyle = "bg-gray-900 border-gray-800 hover:border-red-600 hover:bg-gray-800 text-gray-300";
+            if (gameState !== 'playing') {
+              if (isCorrect) buttonStyle = "bg-emerald-950 border-emerald-500 text-emerald-100 font-bold shadow-[0_0_20px_rgba(16,185,129,0.3)]";
+              else if (isSelected) buttonStyle = "bg-red-950/60 border-red-600 text-red-200 line-through opacity-70";
+              else buttonStyle = "bg-gray-900/30 border-gray-900 text-gray-700 opacity-40";
+            }
+
+            return (
+              <button
+                key={name}
+                disabled={gameState !== 'playing' || scoreEarned === 0}
+                onClick={() => {
+                  setSelectedOption(name);
+                  handleOptionClick(name);
+                }}
+                className={`w-full text-left p-5 rounded-xl border text-xs sm:text-sm transition-all duration-200 flex items-center gap-4 group truncate ${buttonStyle}`}
+              >
+                {/* Letra de la opción */}
+                <span className={`w-7 h-7 rounded-lg flex items-center justify-center font-black border text-xs uppercase shadow-inner transition-colors shrink-0 ${
+                  gameState !== 'playing' && isCorrect ? 'bg-emerald-500 border-emerald-400 text-white' : 'bg-gray-800 border-gray-700 text-gray-500 group-hover:border-red-500 group-hover:text-red-400'
+                }`}>
+                  {optionLetter}
+                </span>
+                {/* Nombre del actor */}
+                <span className="flex-1 font-medium truncate">{name}</span>
+                {/* Icono de estado al responder */}
+                {gameState !== 'playing' && isCorrect && <span className="text-lg shrink-0">✅</span>}
+                {gameState !== 'playing' && isSelected && !isCorrect && <span className="text-lg shrink-0">❌</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Panel de Feedback Inferior */}
+        {gameState !== 'playing' && (
+          <div className="mt-8 p-6 bg-gray-900 border-2 border-gray-800 rounded-3xl animate-fade-in shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]">
+            <div className="flex items-center gap-3">
+              <div className={`w-3 h-3 rounded-full ${
+                gameState === 'won' ? 'bg-emerald-500' : 'bg-red-600'
+              }`}></div>
+              <p className="text-xs font-black uppercase tracking-widest text-gray-300">
+                {gameState === 'won' 
+                  ? "🟢 Identificación Exitosa - Perfil Sincronizado" 
+                  : scoreEarned === 0 
+                  ? "⚠️ Tiempo de Escaneo Agotado"
+                  : "🔴 Error de Correspondencia Biométrica"}
               </p>
             </div>
-          )}
-        </div>
-      )}
-
-      {/* REJILLA DE OPCIONES */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-        {options.map((name) => {
-          let btnStyle = "border-gray-200 text-gray-800 hover:border-gray-900 hover:bg-gray-50 active:scale-[0.99]";
-          const isButtonDisabled = gameState !== 'playing' || scoreEarned === 0;
-
-          if (gameState !== 'playing') {
-            if (name === targetActor?.name) {
-              btnStyle = "border-green-500 bg-green-50 text-green-700 font-black ring-4 ring-green-100";
-            } else if (selectedOption === name) {
-              btnStyle = "border-red-500 bg-red-50 text-red-700 font-black";
-            } else {
-              btnStyle = "border-gray-100 text-gray-300 opacity-40 cursor-not-allowed";
-            }
-          }
-
-          return (
-            <button
-              key={name}
-              disabled={isButtonDisabled}
-              onClick={() => handleOptionClick(name)}
-              className={`border-2 rounded-2xl px-4 py-3.5 font-bold text-sm text-left transition-all flex items-center justify-between truncate ${btnStyle}`}
+            
+            {targetActor && (
+              <p className="text-xs sm:text-sm text-gray-200 mt-4 leading-relaxed font-sans bg-gray-950 p-4 rounded-xl border border-gray-800">
+                Identidad confirmada en el núcleo central de datos: <span className="font-mono text-red-400 font-bold uppercase tracking-wider">{targetActor.name}</span>.
+              </p>
+            )}
+            
+            <button 
+              onClick={handleNextBackbone}
+              className="mt-6 w-full bg-white text-gray-950 p-3.5 rounded-xl text-xs font-black hover:bg-red-600 hover:text-white transition-colors uppercase tracking-widest shadow-md"
             >
-              <span className="truncate">{name}</span>
-              {gameState === 'won' && name === targetActor?.name && <span className="text-green-600 font-black">✓</span>}
-              {gameState === 'lost' && selectedOption === name && <span className="text-red-600 font-black">✗</span>}
+              {currentQuestion === TOTAL_QUESTIONS ? "Finalizar Análisis y Ver Resultados" : "Siguiente Archivo de Transmisión ➔"}
             </button>
-          );
-        })}
+          </div>
+        )}
       </div>
-
-      {/* BOTÓN CONTINUAR */}
-      {(gameState === 'won' || gameState === 'lost') && (
-        <div className="mt-6 pt-5 border-t border-gray-100 text-center animate-fade-in">
-          {targetActor && (
-            <p className="text-xs sm:text-sm font-bold text-gray-500 mb-3.5">
-              Identidad de la estrella: <span className="font-black text-gray-900">{targetActor.name}</span>
-            </p>
-          )}
-          
-          <button
-            onClick={handleNextBackbone}
-            className="bg-gray-900 text-white font-black text-sm px-8 py-3.5 rounded-xl shadow-md hover:bg-gray-800 active:scale-95 transition-all w-full sm:w-auto"
-          >
-            {currentQuestion === TOTAL_QUESTIONS ? "Ver Resultados Finales 🏆" : "Siguiente Rostro ➔"}
-          </button>
-        </div>
-      )}
-
+      
+      {/* Estilos nativos para animaciones */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
+      `}} />
     </div>
   );
 }
