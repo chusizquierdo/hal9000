@@ -14,6 +14,7 @@ import UserLeaderboard from './components/UserLeaderboard';
 import NavbarTabs from './components/NavbarTabs';
 import ContactAdminPage from './components/ContactAdminPage'; 
 import QuizGame from './components/QuizGame'; // INTEGRACIÓN DEL COMPONENTE DEL JUEGO
+import PixelGame from './components/PixelGame'; // NUEVA INTEGRACIÓN DEL JUEGO PIXELADO
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -196,11 +197,13 @@ export default function App() {
     setSelectedMediaId(null);
     setNavigationStack([]);
     
-    // CONTROLAMOS LAS DOS PESTAÑAS ESPECIALES QUE TIENEN VISTAS PROPIAS
+    // CONTROLAMOS LAS PESTAÑAS ESPECIALES QUE TIENEN VISTAS PROPIAS
     if (tabName === 'contact') {
       setCurrentView('contact');
     } else if (tabName === 'quiz') {
       setCurrentView('quiz');
+    } else if (tabName === 'pixel') {
+      setCurrentView('pixel');
     } else {
       setCurrentView('dashboard');
     }
@@ -336,6 +339,10 @@ export default function App() {
         {/* RENDERIZADO DEL JUEGO DE PREGUNTAS CUANDO EL ESTADO ES QUIZ */}
         {currentView === 'quiz' && (
           <QuizGame onBack={navigateToDashboard} />
+        )}
+        {/* RENDERIZADO DEL NUEVO JUEGO PIXELADO */}
+        {currentView === 'pixel' && (
+          <PixelGame onBack={navigateToDashboard} />
         )}
       </main>
     </div>

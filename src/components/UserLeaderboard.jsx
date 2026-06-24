@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { supabase } from "../supabaseClient";
 
 export default function UserLeaderboard({ onViewMovie }) {
-  // Pestaña activa: 'critics' o 'quiz'
+  // Pestaña activa: 'critics', 'quiz' o 'pixel'
   const [activeTab, setActiveTab] = useState('critics');
   
   const [usersCritics, setUsersCritics] = useState([]);
   const [usersQuiz, setUsersQuiz] = useState([]);
+  const [usersPixel, setUsersPixel] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -23,24 +24,24 @@ export default function UserLeaderboard({ onViewMovie }) {
     try {
       setLoading(true);
       
-      // Consultamos los perfiles incluyendo el conteo de reviews y la nueva columna 'quiz_score'
       const { data, error: dbError } = await supabase
         .from('profiles')
         .select(`
           id,
           username,
           quiz_score,
+          pixel_score,
           reviews (count)
         `);
 
       if (dbError) throw dbError;
 
-      // Mapeamos los datos base comunes
       const formattedUsers = data.map(user => ({
         id: user.id,
         name: user.username || 'Usuario Anónimo',
         reviewsCount: user.reviews?.[0]?.count || 0,
-        quizScore: user.quiz_score || 0 // Puntuación del quiz (aciertos)
+        quizScore: user.quiz_score || 0, 
+        pixelScore: user.pixel_score || 0 
       }));
 
       // 1. Ordenación para el Ranking de Críticos (por número de críticas)
@@ -51,6 +52,10 @@ export default function UserLeaderboard({ onViewMovie }) {
       const sortedQuiz = [...formattedUsers].sort((a, b) => b.quizScore - a.quizScore);
       setUsersQuiz(sortedQuiz);
 
+      // 3. Ordenación para el Ranking de Pixelado (por puntuación)
+      const sortedPixel = [...formattedUsers].sort((a, b) => b.pixelScore - a.pixelScore);
+      setUsersPixel(sortedPixel);
+
     } catch (err) {
       console.error("Error al cargar los leaderboards:", err);
       setError("No se pudo sincronizar los rankings de la plataforma.");
@@ -59,7 +64,6 @@ export default function UserLeaderboard({ onViewMovie }) {
     }
   };
 
-  // Función para expandir/colapsar y cargar las reseñas específicas de un usuario (Solo críticos)
   const handleUserClick = async (userId) => {
     if (expandedUserId === userId) {
       setExpandedUserId(null);
@@ -132,8 +136,7 @@ export default function UserLeaderboard({ onViewMovie }) {
     );
   }
 
-  // Selección del set de datos según la pestaña activa
-  const currentDataset = activeTab === 'critics' ? usersCritics : usersQuiz;
+  const currentDataset = activeTab === 'critics' ? usersCritics : activeTab === 'quiz' ? usersQuiz : usersPixel;
 
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-8 bg-white rounded-3xl shadow-sm border border-gray-100 my-6 mx-4 sm:mx-auto">
@@ -147,13 +150,15 @@ export default function UserLeaderboard({ onViewMovie }) {
           <p className="text-xs sm:text-sm text-gray-400 font-medium mt-1">
             {activeTab === 'critics' 
               ? "Haz clic sobre un crítico para desplegar y leer detalladamente su historial de reseñas."
-              : "Historial de transmisiones del sistema. Los usuarios con las mentes cinéfilas más eficientes."
+              : activeTab === 'quiz'
+              ? "Historial de transmisiones del sistema. Los usuarios con las mentes cinéfilas más eficientes en el Trivial."
+              : "Clasificación de agudeza visual. ¿Quién es el mejor reconociendo rostros en Pixelado?"
             }
           </p>
         </div>
 
         {/* Selector de Pestañas Estilizado */}
-        <div className="flex bg-gray-100 p-1 rounded-2xl self-start md:self-center border border-gray-200/50">
+        <div className="flex flex-wrap bg-gray-100 p-1 rounded-2xl self-start md:self-center border border-gray-200/50">
           <button
             onClick={() => setActiveTab('critics')}
             className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
@@ -172,7 +177,17 @@ export default function UserLeaderboard({ onViewMovie }) {
                 : 'text-gray-500 hover:text-gray-800'
             }`}
           >
-            🏆 Ranking Quiz
+            🏆 Trivial Clásico
+          </button>
+          <button
+            onClick={() => setActiveTab('pixel')}
+            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+              activeTab === 'pixel' 
+                ? 'bg-white text-gray-900 shadow-sm' 
+                : 'text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            🎬 Pixelado
           </button>
         </div>
       </div>
@@ -186,7 +201,6 @@ export default function UserLeaderboard({ onViewMovie }) {
             const isTop3 = index < 3;
             const isExpanded = activeTab === 'critics' && expandedUserId === user.id;
             
-            // Asignación de color de fondo premium para el podio
             const bgStyles = index === 0 
               ? "from-amber-50/50 to-transparent border-amber-100/80 shadow-amber-50/30" 
               : index === 1 
@@ -202,7 +216,6 @@ export default function UserLeaderboard({ onViewMovie }) {
                   isExpanded ? 'border-blue-200 ring-4 ring-blue-50/40' : 'hover:border-gray-300'
                 }`}
               >
-                {/* Fila Principal de la Tarjeta */}
                 <div 
                   onClick={() => activeTab === 'critics' && handleUserClick(user.id)}
                   className={`flex items-center justify-between p-4 sm:p-5 bg-gradient-to-r ${bgStyles} ${
@@ -229,9 +242,8 @@ export default function UserLeaderboard({ onViewMovie }) {
                     </div>
                   </div>
 
-                  {/* Bloque Derecho Dinámico según la Pestaña */}
                   <div className="text-right shrink-0 ml-2">
-                    {activeTab === 'critics' ? (
+                    {activeTab === 'critics' && (
                       <span className={`text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm ${
                         index === 0 
                           ? 'bg-amber-100 text-amber-900' 
@@ -241,7 +253,9 @@ export default function UserLeaderboard({ onViewMovie }) {
                       }`}>
                         {user.reviewsCount} {user.reviewsCount === 1 ? 'reseña' : 'reseñas'}
                       </span>
-                    ) : (
+                    )}
+                    
+                    {activeTab === 'quiz' && (
                       <span className={`text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm ${
                         index === 0 
                           ? 'bg-amber-500 text-white' 
@@ -251,13 +265,26 @@ export default function UserLeaderboard({ onViewMovie }) {
                           ? 'bg-amber-600 text-white' 
                           : 'bg-red-50 text-red-600 border border-red-100'
                       }`}>
-                        {user.quizScore} {user.quizScore === 1 ? 'acierto' : 'aciertos'}
+                        {user.quizScore} pts
+                      </span>
+                    )}
+
+                    {activeTab === 'pixel' && (
+                      <span className={`text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm ${
+                        index === 0 
+                          ? 'bg-indigo-500 text-white' 
+                          : index === 1 
+                          ? 'bg-indigo-400 text-white' 
+                          : index === 2 
+                          ? 'bg-indigo-600 text-white' 
+                          : 'bg-indigo-50 text-indigo-600 border border-indigo-100'
+                      }`}>
+                        {user.pixelScore} pts
                       </span>
                     )}
                   </div>
                 </div>
 
-                {/* Sección Desplegable Exclusiva para Críticos */}
                 {activeTab === 'critics' && isExpanded && (
                   <div className="bg-slate-50/60 border-t border-gray-100 p-4 sm:p-6 transition-all">
                     {loadingReviews && !userReviews[user.id] ? (
