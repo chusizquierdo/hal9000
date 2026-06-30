@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { supabase } from "../supabaseClient";
 
 export default function UserLeaderboard({ onViewMovie }) {
-  // Pestaña activa: 'critics', 'quiz', 'pixel' o 'timeline'
+  // Pestaña activa: 'critics', 'quiz', 'pixel', 'timeline' o 'wordle'
   const [activeTab, setActiveTab] = useState('critics');
   
   const [usersCritics, setUsersCritics] = useState([]);
   const [usersQuiz, setUsersQuiz] = useState([]);
   const [usersPixel, setUsersPixel] = useState([]); 
   const [usersTimeline, setUsersTimeline] = useState([]); 
+  const [usersWordle, setUsersWordle] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -33,6 +34,7 @@ export default function UserLeaderboard({ onViewMovie }) {
           quiz_score,
           pixel_score,
           timeline_score,
+          wordle_score,
           reviews (count)
         `);
 
@@ -44,7 +46,8 @@ export default function UserLeaderboard({ onViewMovie }) {
         reviewsCount: user.reviews?.[0]?.count || 0,
         quizScore: user.quiz_score || 0, 
         pixelScore: user.pixel_score || 0,
-        timelineScore: user.timeline_score || 0
+        timelineScore: user.timeline_score || 0,
+        wordleScore: user.wordle_score || 0
       }));
 
       // 1. Ordenación para el Ranking de Críticos (por número de críticas)
@@ -62,6 +65,10 @@ export default function UserLeaderboard({ onViewMovie }) {
       // 4. Ordenación para el Ranking de Cronología (por puntuación temporal)
       const sortedTimeline = [...formattedUsers].sort((a, b) => b.timelineScore - a.timelineScore);
       setUsersTimeline(sortedTimeline);
+
+      // 5. Ordenación para el Ranking de Wordle (por puntuación de fotogramas)
+      const sortedWordle = [...formattedUsers].sort((a, b) => b.wordleScore - a.wordleScore);
+      setUsersWordle(sortedWordle);
 
     } catch (err) {
       console.error("Error al cargar los leaderboards:", err);
@@ -143,12 +150,13 @@ export default function UserLeaderboard({ onViewMovie }) {
     );
   }
 
-  // Selección dinámica del dataset activo incluyendo 'timeline'
+  // Selección dinámica del dataset activo
   const currentDataset = 
     activeTab === 'critics' ? usersCritics : 
     activeTab === 'quiz' ? usersQuiz : 
     activeTab === 'pixel' ? usersPixel : 
-    usersTimeline;
+    activeTab === 'timeline' ? usersTimeline : 
+    usersWordle;
 
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-8 bg-white rounded-3xl shadow-sm border border-gray-100 my-6 mx-4 sm:mx-auto">
@@ -166,7 +174,9 @@ export default function UserLeaderboard({ onViewMovie }) {
               ? "Historial de transmisiones del sistema. Los usuarios con las mentes cinéfilas más eficientes en el Trivial."
               : activeTab === 'pixel'
               ? "Clasificación de agudeza visual. ¿Quién es el mejor reconociendo rostros en Pixelado?"
-              : "Líneas de tiempo maestras. Historial de ordenación cronológica perfecta en el cine global."
+              : activeTab === 'timeline'
+              ? "Líneas de tiempo maestras. Historial de ordenación cronológica perfecta en el cine global."
+              : "Detectives del fotograma. Clasificación oficial de los que necesitan menos pistas en el Wordle de Cine."
             }
           </p>
         </div>
@@ -212,6 +222,16 @@ export default function UserLeaderboard({ onViewMovie }) {
             }`}
           >
             ⏱️ Cronología
+          </button>
+          <button
+            onClick={() => setActiveTab('wordle')}
+            className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+              activeTab === 'wordle' 
+                ? 'bg-white text-gray-900 shadow-sm' 
+                : 'text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            🧩 Wordle
           </button>
         </div>
       </div>
@@ -318,6 +338,20 @@ export default function UserLeaderboard({ onViewMovie }) {
                           : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
                       }`}>
                         {user.timelineScore} pts
+                      </span>
+                    )}
+
+                    {activeTab === 'wordle' && (
+                      <span className={`text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm ${
+                        index === 0 
+                          ? 'bg-yellow-500 text-gray-950' 
+                          : index === 1 
+                          ? 'bg-yellow-400 text-gray-900' 
+                          : index === 2 
+                          ? 'bg-yellow-600 text-white' 
+                          : 'bg-yellow-50 text-yellow-700 border border-yellow-100'
+                      }`}>
+                        {user.wordleScore} pts
                       </span>
                     )}
                   </div>

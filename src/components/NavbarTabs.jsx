@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 
 export default function NavbarTabs({ activeTab, onTabChange }) {
-  const [isOpen, setIsOpen] = useState(false); // Control del menú móvil general
-  const [isMobileGamesOpen, setIsMobileGamesOpen] = useState(false); // Acordeón de juegos en móvil
-  const [isDesktopGamesOpen, setIsDesktopGamesOpen] = useState(false); // Desplegable en escritorio
+  const [isOpen, setIsOpen] = useState(false);
+  const [isMobileGamesOpen, setIsMobileGamesOpen] = useState(false);
+  const [isDesktopGamesOpen, setIsDesktopGamesOpen] = useState(false);
 
   const mainTabs = [
     { id: 'feed', label: 'Biblioteca' },
@@ -18,10 +18,10 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
   const gameTabs = [
     { id: 'quiz', label: 'Quiz' },
     { id: 'pixel', label: 'Pixelado' },
-    { id: 'timeline', label: 'Cronología' }
+    { id: 'timeline', label: 'Cronología' },
+    { id: 'wordle', label: 'Wordle' }
   ];
 
-  // Identificar qué texto mostrar en la cabecera del botón móvil
   let currentLabel = 'Biblioteca';
   const foundMain = mainTabs.find(t => t.id === activeTab);
   const foundGame = gameTabs.find(t => t.id === activeTab);
@@ -29,8 +29,7 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
   if (foundGame) currentLabel = `Juegos: ${foundGame.label}`;
   if (activeTab === 'contact') currentLabel = 'Contactar Admin';
 
-  // Saber si el usuario está dentro de alguna sección de juego
-  const isGameActive = activeTab === 'quiz' || activeTab === 'pixel' || activeTab === 'timeline';
+  const isGameActive = activeTab === 'quiz' || activeTab === 'pixel' || activeTab === 'timeline' || activeTab === 'wordle';
 
   return (
     <div className="max-w-7xl mx-auto px-4 mt-4 relative">
@@ -161,7 +160,7 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
                     activeTab === subTab.id ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
                 >
-                  {subTab.id === 'quiz' ? '🏆 Trivial Quiz' : subTab.id === 'pixel' ? '🎬 Pixelado' : '⏱️ Cronología'}
+                  {subTab.id === 'quiz' ? '🏆 Trivial Quiz' : subTab.id === 'pixel' ? '🎬 Pixelado' : subTab.id === 'timeline' ? '⏱️ Cronología' : '🧩 Wordle'}
                 </button>
               ))}
             </div>

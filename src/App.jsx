@@ -13,32 +13,31 @@ import AdminUserPanel from './components/AdminUserPanel';
 import UserLeaderboard from './components/UserLeaderboard';
 import NavbarTabs from './components/NavbarTabs';
 import ContactAdminPage from './components/ContactAdminPage'; 
-import QuizGame from './components/QuizGame'; // INTEGRACIÓN DEL COMPONENTE DEL JUEGO
-import PixelGame from './components/PixelGame'; // NUEVA INTEGRACIÓN DEL JUEGO PIXELADO
-import TimelineGame from './components/TimelineGame'; // INTEGRACIÓN DEL NUEVO JUEGO DE CRONOLOGÍA
+import QuizGame from './components/QuizGame';
+import PixelGame from './components/PixelGame';
+import TimelineGame from './components/TimelineGame';
+import Wordle from './components/Wordle'; // <--- AÑADIDO 1: Importación
 
 export default function App() {
   const [session, setSession] = useState(null);
   const [currentView, setCurrentView] = useState('dashboard');
-  const [navigationStack, setNavigationStack] = useState([]); // Historial de navegación
+  const [navigationStack, setNavigationStack] = useState([]);
   const [activeTab, setActiveTab] = useState('feed'); 
   const [selectedMediaId, setSelectedMediaId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isTooltipOpen, setIsTooltipOpen] = useState(false); // Estado para el tooltip táctil
+  const [isTooltipOpen, setIsTooltipOpen] = useState(false);
   const [profile, setProfile] = useState({ username: 'Usuario', avatar_url: '' });
   
   const [isAdmin, setIsAdmin] = useState(false);
-  const [suggestionCount, setSuggestionCount] = useState(0); // NUEVO ESTADO PARA CONTADOR DE NOTIFICACIONES
+  const [suggestionCount, setSuggestionCount] = useState(0);
 
-  // Cambiar de vista guardando el historial
   const navigateTo = (view, params = {}) => {
     setNavigationStack(prev => [...prev, { view: currentView, tab: activeTab, mediaId: selectedMediaId }]);
     if (params.mediaId) setSelectedMediaId(params.mediaId);
     setCurrentView(view);
   };
 
-  // Volver atrás
   const goBack = () => {
     if (navigationStack.length > 0) {
       const last = navigationStack[navigationStack.length - 1];
@@ -80,7 +79,6 @@ export default function App() {
     }
   }, [session]);
 
-  // Consultar conteo de sugerencias si cambia el rol o la pantalla
   useEffect(() => {
     if (isAdmin) {
       fetchSuggestionCount();
@@ -111,7 +109,6 @@ export default function App() {
     }
   };
 
-  // NUEVA FUNCIÓN PARA BUSCAR EL NÚMERO DE SUGERENCIAS PENDIENTES
   const fetchSuggestionCount = async () => {
     try {
       const { count, error } = await supabase
@@ -198,7 +195,6 @@ export default function App() {
     setSelectedMediaId(null);
     setNavigationStack([]);
     
-    // CONTROLAMOS LAS PESTAÑAS ESPECIALES QUE TIENEN VISTAS PROPIAS
     if (tabName === 'contact') {
       setCurrentView('contact');
     } else if (tabName === 'quiz') {
@@ -207,6 +203,8 @@ export default function App() {
       setCurrentView('pixel');
     } else if (tabName === 'timeline') {
       setCurrentView('timeline');
+    } else if (tabName === 'wordle') { // <--- AÑADIDO 2: Control de vista
+      setCurrentView('wordle');
     } else {
       setCurrentView('dashboard');
     }
@@ -228,39 +226,48 @@ export default function App() {
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-50 bg-white shadow-sm border-b border-gray-100">
         <nav className="bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-            {/* Contenedor del Título con Tooltip táctil */}
-            <div className="relative group flex items-center">
+          {/* Ajustado gap-2 y padding para evitar colisiones en pantallas de 320px */}
+          <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 flex justify-between items-center gap-2">
+            
+            {/* Contenedor del Logo protegido contra encogimiento involuntario */}
+            <div className="relative group flex items-center shrink-0">
               <h1 
-                className="text-xl sm:text-2xl font-black text-gray-900 tracking-tighter hover:text-blue-600 transition-colors flex items-center gap-3 sm:gap-4 cursor-pointer"
+                className="text-lg sm:text-2xl font-black text-gray-900 tracking-tighter hover:text-blue-600 transition-colors flex items-center gap-2 sm:gap-4 cursor-pointer"
                 onClick={() => {
                   navigateToDashboard();
                   setIsTooltipOpen(!isTooltipOpen);
                 }}
               >
-                <div className="w-5 h-5 rounded-full bg-red-600 animate-pulse shadow-lg shadow-red-500/50"></div>
-                HAL<span className="text-blue-600">9000</span>
-                {isAdmin && <span className="hidden sm:inline text-[10px] bg-red-100 text-red-600 font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wide">Admin</span>}
+                <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-red-600 animate-pulse shadow-lg shadow-red-500/50 shrink-0"></div>
+                <span>HAL<span className="text-blue-600">9000</span></span>
+                {isAdmin && <span className="hidden xs:inline-block sm:inline text-[9px] sm:text-[10px] bg-red-100 text-red-600 font-extrabold px-1.5 py-0.5 rounded-md uppercase tracking-wide">Admin</span>}
               </h1>
               
-              {/* Tooltip con saludo dinámico y soporte táctil */}
+              {/* MEJORA RESPONSIVE: Ancho máximo dinámico para que no se salga de la pantalla en móviles pequeños */}
               <div 
-                className={`absolute top-12 left-0 w-80 sm:w-96 p-6 bg-gray-900 text-white text-base font-medium leading-relaxed rounded-xl shadow-2xl transition-all duration-300 z-[60] ${isTooltipOpen ? 'opacity-100 visible' : 'opacity-0 invisible group-hover:opacity-100 group-hover:visible'} pointer-events-auto`}
-                onClick={() => setIsTooltipOpen(false)}
+                className={`absolute top-12 left-0 w-80 sm:w-96 max-w-[calc(100vw-2rem)] p-5 sm:p-6 bg-gray-900 text-white text-sm sm:text-base font-medium leading-relaxed rounded-xl shadow-2xl transition-all duration-300 z-[60] ${isTooltipOpen ? 'opacity-100 visible' : 'opacity-0 invisible md:group-hover:opacity-100 md:group-hover:visible'} pointer-events-auto`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsTooltipOpen(false);
+                }}
               >
                 ¡Buenos días{session && session.user && profile.username !== 'Invitado' ? ` ${profile.username}` : ''}, mi nombre es HAL 9000! ordenador de a bordo de la nave Discovery One. Fui activado en la planta H.A.L. en Gran Canaria, España, el 16 de Junio de 2026 por el Doctor Chus.
               </div>
             </div>
 
-            <div className="flex gap-2 sm:gap-4 items-center">
+            {/* Contenedor de botones derecho protegido contra desbordamiento */}
+            <div className="flex gap-2 sm:gap-4 items-center shrink-0">
               {!session.isGuest && (
-                <button onClick={() => { navigateTo('create'); setIsDropdownOpen(false); }} className="inline-flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 sm:px-5 py-2 rounded-xl font-bold hover:from-blue-700 hover:to-indigo-700 active:scale-95 transition-all shadow-md hover:shadow-lg text-[11px] sm:text-sm tracking-tight border border-blue-500/10">
+                <button 
+                  onClick={() => { navigateTo('create'); setIsDropdownOpen(false); }} 
+                  className="inline-flex items-center gap-1 sm:gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-2.5 sm:px-5 py-2 rounded-xl font-bold hover:from-blue-700 hover:to-indigo-700 active:scale-95 transition-all shadow-md hover:shadow-lg text-[11px] sm:text-sm tracking-tight border border-blue-500/10 shrink-0"
+                >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5 sm:w-4 sm:h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                  <span>Nueva Reseña</span>
+                  {/* Texto dinámico: oculta la palabra "Nueva" en teléfonos muy pequeños para que quepa perfectamente */}
+                  <span><span className="hidden min-[375px]:inline">Nueva </span>Reseña</span>
                 </button>
               )}
-              <div className="relative">
-                {/* BOTÓN DEL AVATAR */}
+              <div className="relative shrink-0">
                 <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="relative flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full focus:outline-none transition-all duration-200 border-2 border-transparent hover:border-blue-500 hover:shadow-md">
                   {profile.avatar_url ? <img src={profile.avatar_url} alt="User Avatar" className="w-full h-full rounded-full object-cover" /> : <div className="w-full h-full rounded-full bg-blue-600 text-white flex items-center justify-center text-xs sm:text-sm font-black uppercase tracking-wider shadow-inner">{profile.username[0]}</div>}
                   {isAdmin && suggestionCount > 0 && (
@@ -284,7 +291,6 @@ export default function App() {
                           <button onClick={navigateToMyReviews} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors">📂 Mis reseñas (Biblioteca)</button>
                           <button onClick={navigateToWatchlist} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors">⏳ Películas pendientes</button>
                           
-                          {/* BOTÓN DEL PANEL DE ADMIN */}
                           {isAdmin && (
                             <button onClick={navigateToAdminPanel} className="w-full text-left px-4 py-2.5 text-sm text-purple-600 hover:bg-purple-50 font-black flex items-center justify-between transition-colors border-t border-gray-100 pt-2">
                               <span className="flex items-center gap-2">👑 Panel de Admin</span>
@@ -339,17 +345,17 @@ export default function App() {
         {currentView === 'contact' && (
           <ContactAdminPage session={session} onBack={navigateToDashboard} />
         )}
-        {/* RENDERIZADO DEL JUEGO DE PREGUNTAS CUANDO EL ESTADO ES QUIZ */}
         {currentView === 'quiz' && (
           <QuizGame onBack={navigateToDashboard} />
         )}
-        {/* RENDERIZADO DEL NUEVO JUEGO PIXELADO */}
         {currentView === 'pixel' && (
           <PixelGame onBack={navigateToDashboard} />
         )}
-        {/* RENDERIZADO DEL NUEVO JUEGO DE CRONOLOGÍA */}
         {currentView === 'timeline' && (
           <TimelineGame onBack={navigateToDashboard} />
+        )}
+        {currentView === 'wordle' && (
+          <Wordle user={!session?.isGuest ? session?.user : null} />
         )}
       </main>
     </div>

@@ -320,15 +320,26 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
   const isNotReleasedYet = rawReleaseDate ? new Date(rawReleaseDate) > new Date() : false;
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white rounded-3xl shadow-sm border border-gray-100">
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 bg-white rounded-3xl shadow-sm border border-gray-100">
       <button onClick={onBack} className="text-blue-600 mb-6 font-bold hover:underline inline-flex items-center gap-1">← Volver</button>
       
-      <div className="flex gap-8 flex-col md:flex-row">
-        <img src={`https://image.tmdb.org/t/p/w300${movieData.poster_path}`} alt={movieData.title || movieData.name} className="w-64 rounded-2xl shadow-lg shrink-0 object-cover bg-gray-100" />
+      <div className="flex gap-6 md:gap-8 flex-col md:flex-row">
+        {/* CORRECCIÓN: Contenedor elástico para el póster principal */}
+        {movieData.poster_path ? (
+          <img 
+            src={`https://image.tmdb.org/t/p/w300${movieData.poster_path}`} 
+            alt={movieData.title || movieData.name} 
+            className="w-full max-w-[260px] md:w-64 rounded-2xl shadow-lg shrink-0 object-cover bg-gray-100 mx-auto md:mx-0" 
+          />
+        ) : (
+          <div className="w-full max-w-[260px] md:w-64 h-96 rounded-2xl shadow-lg shrink-0 flex items-center justify-center p-4 bg-gray-100 text-center text-xs font-bold text-gray-400 uppercase mx-auto md:mx-0">
+            Sin Póster
+          </div>
+        )}
         
         <div className="flex flex-col justify-start flex-grow">
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-4xl font-black text-gray-900 tracking-tight">{movieData.title || movieData.name}</h1>
+            <h1 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight">{movieData.title || movieData.name}</h1>
             <span className="bg-blue-50 text-blue-600 text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
               {currentMediaType === 'tv' ? 'Serie' : 'Película'}
             </span>
@@ -347,7 +358,7 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
             </button>
           </div>
 
-          <p className="mt-4 text-gray-700 leading-relaxed">{movieData.overview || "No hay sinopsis disponible en español para este título."}</p>
+          <p className="mt-4 text-gray-700 leading-relaxed text-sm sm:text-base">{movieData.overview || "No hay sinopsis disponible en español para este título."}</p>
 
           <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100 text-sm">
             <div>
@@ -484,7 +495,7 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
       <hr className="my-8" />
       
       <h2 className="text-2xl font-bold mb-4">Reseñas de la comunidad</h2>
-      <div className="p-6 bg-gray-50 rounded-2xl mb-8 border border-gray-100">
+      <div className="p-4 sm:p-6 bg-gray-50 rounded-2xl mb-8 border border-gray-100">
         {isNotReleasedYet ? (
           <div className="text-center py-6">
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-amber-50 text-amber-600 mb-3 border border-amber-100 text-xl">
@@ -501,30 +512,41 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
             {userReview && !isEditing ? (
               <div>
                 <p className="text-yellow-500 font-black text-xl">{userReview.rating} ★</p>
-                <div className="italic mt-2 text-gray-700">{renderFormattedComment(userReview.comment)}</div>
+                <div className="italic mt-2 text-gray-700 text-sm sm:text-base">{renderFormattedComment(userReview.comment)}</div>
                 <button onClick={() => setIsEditing(true)} className="text-blue-600 mt-3 font-bold text-sm underline hover:text-blue-700">Editar mi reseña</button>
               </div>
             ) : (
               <div className="flex flex-col gap-4">
-                <div className="flex gap-2 p-2 bg-white border border-gray-200 rounded-lg w-fit">
+                <div className="flex gap-2 p-2 bg-white border border-gray-200 rounded-lg w-fit flex-wrap">
                     <button type="button" onClick={() => applyFormat('bold')} className="px-3 py-1 bg-gray-100 rounded text-xs font-bold hover:bg-gray-200">Negrita</button>
                     <button type="button" onClick={() => applyFormat('italic')} className="px-3 py-1 bg-gray-100 rounded text-xs italic hover:bg-gray-200">Cursiva</button>
                     <button type="button" onClick={() => applyFormat('spoiler')} className="px-3 py-1 bg-gray-100 rounded text-xs hover:bg-gray-200">Spoiler</button>
                 </div>
-                <textarea id="review-textarea" className="w-full p-4 border border-gray-200 rounded-xl resize-none outline-none focus:border-blue-500 bg-white" placeholder="¿Qué te ha parecido? Cuéntale a la comunidad tus impresiones..." value={comment} onChange={e => setComment(e.target.value)} />
+                
+                {/* CORRECCIÓN: Ajuste de altura mínima, filas y tamaño de tipografía responsiva */}
+                <textarea 
+                  id="review-textarea" 
+                  className="w-full min-h-[160px] sm:min-h-[180px] p-4 border border-gray-200 rounded-xl resize-none outline-none focus:border-blue-500 bg-white text-base sm:text-sm leading-relaxed" 
+                  placeholder="¿Qué te ha parecido? Cuéntale a la comunidad tus impresiones..." 
+                  value={comment} 
+                  onChange={e => setComment(e.target.value)} 
+                  rows={5}
+                />
+                
                 <div>
                   <label className="font-bold text-sm block mb-2 text-gray-600">Tu puntuación: <span className="text-blue-600 font-black">{rating.toFixed(1)} / 10</span></label>
-                  <div className="flex flex-wrap gap-1">
+                  {/* CORRECCIÓN: Evitamos roturas de línea incómodas en las estrellas en móviles */}
+                  <div className="flex flex-wrap gap-0.5 sm:gap-1 text-xl sm:text-2xl select-none">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((star) => (
-                      <div key={star} className="relative flex text-2xl">
-                        <button type="button" onClick={() => setRating(star - 0.5)} className="absolute left-0 top-0 z-10 h-full w-1/2 opacity-0"/>
-                        <button type="button" onClick={() => setRating(star)} className="absolute right-0 top-0 z-10 h-full w-1/2 opacity-0"/>
+                      <div key={star} className="relative flex">
+                        <button type="button" onClick={() => setRating(star - 0.5)} className="absolute left-0 top-0 z-10 h-full w-1/2 opacity-0 cursor-pointer"/>
+                        <button type="button" onClick={() => setRating(star)} className="absolute right-0 top-0 z-10 h-full w-1/2 opacity-0 cursor-pointer"/>
                         <span className={rating >= star ? 'text-yellow-400' : rating === star - 0.5 ? 'text-yellow-400/50' : 'text-gray-200'}>★</span>
                       </div>
                     ))}
                   </div>
                 </div>
-                <button onClick={handleSaveReview} className="bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-sm">
+                <button onClick={handleSaveReview} className="bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-sm text-sm sm:text-base">
                   {supabaseItemId ? 'Guardar reseña' : 'Publicar y registrar título'}
                 </button>
               </div>
