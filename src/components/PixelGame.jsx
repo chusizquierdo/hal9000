@@ -297,8 +297,8 @@ export default function PixelGame({ onBack }) {
         </div>
       </div>
 
-      {/* Visor de Rostro de Hollywood */}
-      <div className="relative h-[220px] sm:h-[340px] w-full bg-black flex items-center justify-center overflow-hidden border-b border-gray-800 shrink-0">
+      {/* Visor de Rostro de Hollywood (Optimizado con botones transparentes en esquinas) */}
+      <div className="relative h-[280px] sm:h-[360px] w-full bg-black flex items-center justify-center overflow-hidden border-b border-gray-800 shrink-0">
         {targetActor && (
           <img
             src={`${IMAGE_BASE_URL}${targetActor.profile_path}`}
@@ -307,6 +307,48 @@ export default function PixelGame({ onBack }) {
             style={{ filter: `blur(${blurAmount}px)` }}
           />
         )}
+
+        {/* CORRECCIÓN: Botones ultra compactos, transparentes y anclados magnéticamente a las esquinas */}
+        <div className="absolute inset-0 p-2 sm:p-4 grid grid-cols-2 grid-rows-2 content-between pointer-events-none z-20">
+          {options.map((name, index) => {
+            const isCorrect = name === targetActor?.name;
+            const isSelected = name === selectedOption;
+            const optionLetter = String.fromCharCode(65 + index); 
+            
+            // Asignación de esquina específica para mantener el centro libre
+            const cornerAlignment = 
+              index === 0 ? "justify-self-start self-start" :
+              index === 1 ? "justify-self-end self-start" :
+              index === 2 ? "justify-self-start self-end" :
+              "justify-self-end self-end";
+            
+            let buttonStyle = "bg-black/40 border-white/20 hover:border-red-600 text-gray-200 hover:bg-black/70";
+            if (gameState !== 'playing') {
+              if (isCorrect) buttonStyle = "bg-emerald-950/80 border-emerald-500 text-emerald-100 font-bold shadow-md";
+              else if (isSelected) buttonStyle = "bg-red-950/80 border-red-600 text-red-200 line-through opacity-60";
+              else buttonStyle = "bg-black/10 border-white/5 text-gray-600 opacity-20";
+            }
+
+            return (
+              <button
+                key={name}
+                disabled={gameState !== 'playing' || scoreEarned === 0}
+                onClick={() => {
+                  setSelectedOption(name);
+                  handleOptionClick(name);
+                }}
+                className={`w-fit max-w-[130px] sm:max-w-[200px] text-left p-1.5 sm:p-2.5 rounded-xl border text-[10px] sm:text-xs transition-all duration-150 flex items-center gap-1.5 truncate pointer-events-auto shadow-md ${cornerAlignment} ${buttonStyle}`}
+              >
+                <span className={`w-4 h-4 sm:w-5 sm:h-5 rounded-md flex items-center justify-center font-black border text-[9px] sm:text-xs uppercase shrink-0 ${
+                  gameState !== 'playing' && isCorrect ? 'bg-emerald-500 border-emerald-400 text-white' : 'bg-white/10 border-white/10 text-gray-400'
+                }`}>
+                  {optionLetter}
+                </span>
+                <span className="flex-1 font-medium truncate leading-tight whitespace-normal">{name}</span>
+              </button>
+            );
+          })}
+        </div>
         
         {gameState === 'won' && (
           <div className="absolute inset-0 bg-emerald-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-10">
@@ -352,41 +394,6 @@ export default function PixelGame({ onBack }) {
             )}
           </div>
         )}
-
-        {/* Listado de Opciones */}
-        <div className="grid grid-cols-2 gap-2 sm:gap-4 mt-3 sm:mt-4">
-          {options.map((name, index) => {
-            const isCorrect = name === targetActor?.name;
-            const isSelected = name === selectedOption;
-            const optionLetter = String.fromCharCode(65 + index); 
-            
-            let buttonStyle = "bg-gray-900 border-gray-800 hover:border-red-600 text-gray-300";
-            if (gameState !== 'playing') {
-              if (isCorrect) buttonStyle = "bg-emerald-950 border-emerald-500 text-emerald-100 font-bold shadow-md";
-              else if (isSelected) buttonStyle = "bg-red-950/60 border-red-600 text-red-200 line-through opacity-60";
-              else buttonStyle = "bg-gray-900/20 border-gray-900 text-gray-700 opacity-30";
-            }
-
-            return (
-              <button
-                key={name}
-                disabled={gameState !== 'playing' || scoreEarned === 0}
-                onClick={() => {
-                  setSelectedOption(name);
-                  handleOptionClick(name);
-                }}
-                className={`w-full text-left p-3 sm:p-5 rounded-xl border text-[11px] sm:text-sm transition-all duration-150 flex items-center gap-2 sm:gap-4 truncate ${buttonStyle}`}
-              >
-                <span className={`w-5 h-5 sm:w-7 sm:h-7 rounded-md flex items-center justify-center font-black border text-[10px] sm:text-xs uppercase shrink-0 ${
-                  gameState !== 'playing' && isCorrect ? 'bg-emerald-500 border-emerald-400 text-white' : 'bg-gray-800 border-gray-700 text-gray-500'
-                }`}>
-                  {optionLetter}
-                </span>
-                <span className="flex-1 font-medium truncate leading-tight whitespace-normal sm:whitespace-nowrap">{name}</span>
-              </button>
-            );
-          })}
-        </div>
 
         {/* Panel de Feedback Inferior */}
         {gameState !== 'playing' && (
