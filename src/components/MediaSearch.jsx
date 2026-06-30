@@ -31,9 +31,10 @@ export default function MediaSearch({ onSelect }) {
 
   return (
     <div className="w-full">
-      <form onSubmit={searchMedia} className="flex gap-2 mb-4">
+      {/* CORRECCIÓN RESPONSIVE: flex-col para móvil y sm:flex-row para pantallas mayores */}
+      <form onSubmit={searchMedia} className="flex flex-col sm:flex-row gap-2 mb-4 w-full">
         <input 
-          className="flex-1 p-2 border rounded shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
+          className="flex-1 min-w-0 p-2 border rounded shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
           placeholder="Busca películas o series..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -41,7 +42,7 @@ export default function MediaSearch({ onSelect }) {
         <button 
           type="submit" 
           disabled={loading}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-gray-400"
+          className="w-full sm:w-auto shrink-0 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-gray-400"
         >
           {loading ? 'Buscando...' : 'Buscar'}
         </button>
