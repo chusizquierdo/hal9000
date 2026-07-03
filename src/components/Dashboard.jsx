@@ -14,7 +14,7 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
   const [filterGenre, setFilterGenre] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
-  const PAGE_SIZE = 20;
+  const PAGE_SIZE = 12;
 
   useEffect(() => {
     fetchMediaWithData();
