@@ -18,9 +18,28 @@ export default function UserLeaderboard({ onViewMovie }) {
   const [userReviews, setUserReviews] = useState({}); // Guarda { userId: [reseñas] }
   const [loadingReviews, setLoadingReviews] = useState(false);
 
+  // --- ESTADO DEL BUSCADOR ---
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // --- ESTADOS DE PAGINACIÓN ---
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
+
   useEffect(() => {
     fetchLeaderboardData();
   }, []);
+
+  // Reiniciar la página y búsqueda al cambiar de pestaña activa
+  useEffect(() => {
+    setCurrentPage(1);
+    setSearchQuery('');
+    setExpandedUserId(null); // Resetea expansiones para evitar comportamientos extraños
+  }, [activeTab]);
+
+  // Reiniciar a la página 1 cuando el usuario escribe en el buscador
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   const fetchLeaderboardData = async () => {
     try {
@@ -120,15 +139,15 @@ export default function UserLeaderboard({ onViewMovie }) {
     }
   };
 
-  const renderRankBadge = (index) => {
-    switch (index) {
+  const renderRankBadge = (globalIndex) => {
+    switch (globalIndex) {
       case 0: return <span className="text-2xl sm:text-3xl drop-shadow-sm" title="Primer Puesto">🥇</span>;
       case 1: return <span className="text-2xl sm:text-3xl drop-shadow-sm" title="Segundo Puesto">🥈</span>;
       case 2: return <span className="text-2xl sm:text-3xl drop-shadow-sm" title="Tercer Puesto">🥉</span>;
       default:
         return (
           <span className="w-7 h-7 sm:w-8 sm:h-8 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm border border-gray-200 shadow-inner">
-            {index + 1}
+            {globalIndex + 1}
           </span>
         );
     }
@@ -150,13 +169,24 @@ export default function UserLeaderboard({ onViewMovie }) {
     );
   }
 
-  // Selección dinámica del dataset activo
+  // 1. Selección dinámica del dataset activo
   const currentDataset = 
     activeTab === 'critics' ? usersCritics : 
     activeTab === 'quiz' ? usersQuiz : 
     activeTab === 'pixel' ? usersPixel : 
     activeTab === 'timeline' ? usersTimeline : 
     usersWordle;
+
+  // 2. Aplicamos el filtro del buscador guardando la referencia a su posición original (para las medallas)
+  const filteredDatasetWithIndex = currentDataset
+    .map((user, originalIndex) => ({ ...user, originalIndex }))
+    .filter(user => user.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  // 3. Cálculos finales de segmentación/paginación
+  const totalPages = Math.ceil(filteredDatasetWithIndex.length / ITEMS_PER_PAGE) || 1;
+  const indexOfLastItem = currentPage * ITEMS_PER_PAGE;
+  const indexOfFirstItem = indexOfLastItem - ITEMS_PER_PAGE;
+  const displayedUsers = filteredDatasetWithIndex.slice(indexOfFirstItem, indexOfLastItem);
 
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-8 bg-white rounded-3xl shadow-sm border border-gray-100 my-6 mx-4 sm:mx-auto">
@@ -236,20 +266,40 @@ export default function UserLeaderboard({ onViewMovie }) {
         </div>
       </div>
 
-      {/* Renderizado Dinámico del Listado */}
+      {/* --- INPUT DEL BUSCADOR --- */}
+      <div className="mb-6 relative">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Buscar usuario por nombre..."
+          className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-medium text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-400 transition-all"
+        />
+        {searchQuery && (
+          <button 
+            onClick={() => setSearchQuery('')}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400 hover:text-gray-600"
+          >
+            Limpiar
+          </button>
+        )}
+      </div>
+
+      {/* Renderizado Dinámico del Listado (Paginado y Filtrado) */}
       <div className="flex flex-col gap-4">
-        {currentDataset.length === 0 ? (
-          <p className="text-gray-400 text-sm italic py-6 text-center">No hay registros cargados todavía.</p>
+        {displayedUsers.length === 0 ? (
+          <p className="text-gray-400 text-sm italic py-6 text-center">No se encontraron usuarios coincidentes.</p>
         ) : (
-          currentDataset.map((user, index) => {
-            const isTop3 = index < 3;
+          displayedUsers.map((user) => {
+            const globalIndex = user.originalIndex;
+            const isTop3 = globalIndex < 3;
             const isExpanded = activeTab === 'critics' && expandedUserId === user.id;
             
-            const bgStyles = index === 0 
+            const bgStyles = globalIndex === 0 
               ? "from-amber-50/50 to-transparent border-amber-100/80 shadow-amber-50/30" 
-              : index === 1 
+              : globalIndex === 1 
               ? "from-slate-50/70 to-transparent border-slate-200/70" 
-              : index === 2 
+              : globalIndex === 2 
               ? "from-orange-50/40 to-transparent border-orange-100/60" 
               : "bg-white border-gray-100";
 
@@ -268,7 +318,7 @@ export default function UserLeaderboard({ onViewMovie }) {
                 >
                   <div className="flex items-center gap-4 min-w-0">
                     <div className="w-10 flex justify-center items-center shrink-0">
-                      {renderRankBadge(index)}
+                      {renderRankBadge(globalIndex)}
                     </div>
                     <div className="flex items-center gap-3 min-w-0">
                       <span className={`text-sm sm:text-base tracking-tight truncate ${
@@ -289,7 +339,7 @@ export default function UserLeaderboard({ onViewMovie }) {
                   <div className="text-right shrink-0 ml-2">
                     {activeTab === 'critics' && (
                       <span className={`text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm ${
-                        index === 0 
+                        globalIndex === 0 
                           ? 'bg-amber-100 text-amber-900' 
                           : isTop3 
                           ? 'bg-gray-100 text-gray-800' 
@@ -301,11 +351,11 @@ export default function UserLeaderboard({ onViewMovie }) {
                     
                     {activeTab === 'quiz' && (
                       <span className={`text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm ${
-                        index === 0 
+                        globalIndex === 0 
                           ? 'bg-amber-500 text-white' 
-                          : index === 1 
+                          : globalIndex === 1 
                           ? 'bg-slate-400 text-white' 
-                          : index === 2 
+                          : globalIndex === 2 
                           ? 'bg-amber-600 text-white' 
                           : 'bg-red-50 text-red-600 border border-red-100'
                       }`}>
@@ -315,11 +365,11 @@ export default function UserLeaderboard({ onViewMovie }) {
 
                     {activeTab === 'pixel' && (
                       <span className={`text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm ${
-                        index === 0 
+                        globalIndex === 0 
                           ? 'bg-indigo-500 text-white' 
-                          : index === 1 
+                          : globalIndex === 1 
                           ? 'bg-indigo-400 text-white' 
-                          : index === 2 
+                          : globalIndex === 2 
                           ? 'bg-indigo-600 text-white' 
                           : 'bg-indigo-50 text-indigo-600 border border-indigo-100'
                       }`}>
@@ -329,11 +379,11 @@ export default function UserLeaderboard({ onViewMovie }) {
 
                     {activeTab === 'timeline' && (
                       <span className={`text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm ${
-                        index === 0 
+                        globalIndex === 0 
                           ? 'bg-emerald-500 text-white' 
-                          : index === 1 
+                          : globalIndex === 1 
                           ? 'bg-emerald-400 text-white' 
-                          : index === 2 
+                          : globalIndex === 2 
                           ? 'bg-emerald-600 text-white' 
                           : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
                       }`}>
@@ -343,11 +393,11 @@ export default function UserLeaderboard({ onViewMovie }) {
 
                     {activeTab === 'wordle' && (
                       <span className={`text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm ${
-                        index === 0 
+                        globalIndex === 0 
                           ? 'bg-yellow-500 text-gray-950' 
-                          : index === 1 
+                          : globalIndex === 1 
                           ? 'bg-yellow-400 text-gray-900' 
-                          : index === 2 
+                          : globalIndex === 2 
                           ? 'bg-yellow-600 text-white' 
                           : 'bg-yellow-50 text-yellow-700 border border-yellow-100'
                       }`}>
@@ -403,6 +453,37 @@ export default function UserLeaderboard({ onViewMovie }) {
           })
         )}
       </div>
+
+      {/* --- BOTONES DE PAGINACIÓN --- */}
+      {totalPages > 1 && (
+        <div className="flex justify-between items-center pt-6 mt-6 border-t border-gray-100">
+          <button
+            disabled={currentPage === 1}
+            onClick={() => {
+              setCurrentPage(prev => Math.max(prev - 1, 1));
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className="px-6 py-2 bg-gray-100 rounded-xl font-bold text-sm text-gray-700 disabled:opacity-30 transition-all"
+          >
+            Anterior
+          </button>
+          
+          <span className="font-bold text-sm text-gray-500">
+            Página {currentPage} de {totalPages}
+          </span>
+
+          <button
+            disabled={currentPage === totalPages}
+            onClick={() => {
+              setCurrentPage(prev => Math.min(prev + 1, totalPages));
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm disabled:opacity-30 transition-all"
+          >
+            Siguiente
+          </button>
+        </div>
+      )}
     </div>
   );
 }

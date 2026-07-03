@@ -9,11 +9,15 @@ export default function AdminUserPanel({ isAdmin }) {
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [error, setError] = useState(null);
 
+  // --- ESTADO DEL BUSCADOR ---
+  const [searchQuery, setSearchQuery] = useState('');
+
   // ESTADOS PARA LA PAGINACIÓN
   const [currentPage, setCurrentPage] = useState(1);
   const [totalUsers, setTotalUsers] = useState(0);
-  const USERS_PER_PAGE = 20;
+  const USERS_PER_PAGE = 10;
 
+  // Sincronizar recarga cuando cambian los modificadores de búsqueda o paginación
   useEffect(() => {
     if (isAdmin) {
       if (activeSubTab === 'users') {
@@ -22,7 +26,13 @@ export default function AdminUserPanel({ isAdmin }) {
         fetchSuggestions();
       }
     }
-  }, [isAdmin, currentPage, activeSubTab]);
+  }, [isAdmin, currentPage, activeSubTab, searchQuery]);
+
+  // Reiniciar valores al cambiar de subpestaña interna
+  useEffect(() => {
+    setCurrentPage(1);
+    setSearchQuery('');
+  }, [activeSubTab]);
 
   const fetchUsers = async () => {
     try {
@@ -30,7 +40,8 @@ export default function AdminUserPanel({ isAdmin }) {
       const from = (currentPage - 1) * USERS_PER_PAGE;
       const to = from + USERS_PER_PAGE - 1;
 
-      const { data, count, error: dbError } = await supabase
+      // Inicializamos la consulta base a la tabla profiles
+      let query = supabase
         .from('profiles')
         .select(`
           id,
@@ -38,7 +49,14 @@ export default function AdminUserPanel({ isAdmin }) {
           role,
           created_at,
           reviews (count)
-        `, { count: 'exact' })
+        `, { count: 'exact' });
+
+      // Si el usuario escribe en el buscador, inyectamos el filtro ILIKE en el servidor
+      if (searchQuery.trim() !== '') {
+        query = query.ilike('username', `%${searchQuery}%`);
+      }
+
+      const { data, count, error: dbError } = await query
         .order('username', { ascending: true, nullsFirst: false })
         .range(from, to);
 
@@ -146,9 +164,14 @@ export default function AdminUserPanel({ isAdmin }) {
     }
   };
 
-  const totalPages = Math.ceil(totalUsers / USERS_PER_PAGE);
+  const totalPages = Math.ceil(totalUsers / USERS_PER_PAGE) || 1;
   const handlePrevPage = () => setCurrentPage(prev => Math.max(1, prev - 1));
   const handleNextPage = () => setCurrentPage(prev => Math.min(totalPages, prev + 1));
+
+  // Filtrado local exclusivamente estético para la pestaña secundaria de sugerencias
+  const filteredSuggestions = suggestions.filter(item => 
+    (item.profiles?.username || 'Usuario eliminado').toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (!isAdmin) {
     return (
@@ -206,6 +229,31 @@ export default function AdminUserPanel({ isAdmin }) {
         </button>
       </div>
 
+      {/* --- INPUT DEL BUSCADOR INTEGRADO --- */}
+      <div className="mb-6 relative">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setCurrentPage(1); // Reiniciamos a pág 1 para evitar desajustes en rangos
+          }}
+          placeholder={activeSubTab === 'users' ? "Buscar usuario por nombre de cuenta..." : "Filtrar sugerencias por remitente..."}
+          className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-medium text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-400 transition-all"
+        />
+        {searchQuery && (
+          <button 
+            onClick={() => {
+              setSearchQuery('');
+              setCurrentPage(1);
+            }}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400 hover:text-gray-600"
+          >
+            Limpiar
+          </button>
+        )}
+      </div>
+
       {/* CONTENIDO DE LA TAB DE USUARIOS */}
       {activeSubTab === 'users' && (
         <>
@@ -214,7 +262,7 @@ export default function AdminUserPanel({ isAdmin }) {
               ⏳ Leyendo base de datos relacional de usuarios...
             </div>
           ) : users.length === 0 ? (
-            <p className="text-gray-400 text-sm italic py-8 text-center">La tabla profiles no contains registros activos.</p>
+            <p className="text-gray-400 text-sm italic py-8 text-center">No se encontraron usuarios coincidentes con tu búsqueda.</p>
           ) : (
             <div className="flex flex-col gap-4">
               <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-inner">
@@ -260,27 +308,28 @@ export default function AdminUserPanel({ isAdmin }) {
                 </table>
               </div>
 
+              {/* --- CONTROLADORES DE PAGINACIÓN ADAPTADOS AL ESTILO --- */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-between bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                  <span className="text-xs text-gray-500 font-medium">
-                    Mostrando página <strong className="text-gray-900">{currentPage}</strong> de <strong className="text-gray-900">{totalPages}</strong> (Total: {totalUsers})
+                <div className="flex justify-between items-center pt-6 mt-2 border-t border-gray-100">
+                  <button
+                    onClick={handlePrevPage}
+                    disabled={currentPage === 1 || loading}
+                    className="px-6 py-2 bg-gray-100 rounded-xl font-bold text-sm text-gray-700 disabled:opacity-30 transition-all"
+                  >
+                    Anterior
+                  </button>
+                  
+                  <span className="font-bold text-sm text-gray-500">
+                    Página {currentPage} de {totalPages}
                   </span>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handlePrevPage}
-                      disabled={currentPage === 1 || loading}
-                      className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Anterior
-                    </button>
-                    <button
-                      onClick={handleNextPage}
-                      disabled={currentPage === totalPages || loading}
-                      className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Siguiente
-                    </button>
-                  </div>
+
+                  <button
+                    onClick={handleNextPage}
+                    disabled={currentPage === totalPages || loading}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm disabled:opacity-30 transition-all"
+                  >
+                    Siguiente
+                  </button>
                 </div>
               )}
             </div>
@@ -295,11 +344,11 @@ export default function AdminUserPanel({ isAdmin }) {
             <div className="p-6 text-center text-gray-500 font-medium">
               ⏳ Abriendo el buzón de sugerencias de usuarios...
             </div>
-          ) : suggestions.length === 0 ? (
+          ) : filteredSuggestions.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
               <span className="text-2xl">🎉</span>
-              <p className="text-gray-500 text-sm font-bold mt-2">¡Buzón limpio!</p>
-              <p className="text-gray-400 text-xs mt-0.5 font-medium">No hay ninguna sugerencia pendiente por revisar.</p>
+              <p className="text-gray-500 text-sm font-bold mt-2">Ningún elemento coincidente</p>
+              <p className="text-gray-400 text-xs mt-0.5 font-medium">No hay sugerencias que cumplan los criterios del filtro aplicado.</p>
             </div>
           ) : (
             <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-inner">
@@ -312,7 +361,7 @@ export default function AdminUserPanel({ isAdmin }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50 text-xs sm:text-sm">
-                  {suggestions.map((item) => (
+                  {filteredSuggestions.map((item) => (
                     <tr key={item.id} className="hover:bg-purple-50/10 transition-colors">
                       <td className="p-3 sm:p-4 font-black text-purple-950 vertical-align-top">
                         {item.profiles?.username || 'Usuario eliminado'}
