@@ -216,21 +216,33 @@ export default function TimelineGame({ onBack }) {
     );
   }
 
+  // --- REEMPLAZADO: MENSAJE CLONADO EXACTAMENTE DEL ARCHIVO WORDLE ---
   if (!currentUser) {
     return (
-      <div className="w-full max-w-2xl mx-auto bg-gray-950 border border-red-900 p-8 rounded-3xl text-center text-white font-mono shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 left-0 right-0 h-1 bg-red-600 shadow-[0_0_15px_#dc2626]"></div>
-        <span className="text-6xl block mt-4 animate-bounce">⚠️</span>
-        <h2 className="text-2xl font-black text-red-500 mt-5 tracking-widest uppercase">Acceso Denegado</h2>
-        <div className="bg-red-950/20 border border-red-900/60 p-6 rounded-2xl my-6 text-left">
-          <p className="text-xs text-red-400 uppercase tracking-widest font-black mb-2">Protocolo de seguridad HAL-9000:</p>
-          <p className="text-sm text-gray-300 font-sans leading-relaxed">
-            Este simulador de trivia almacena registros globales de rendimiento. Para poder sincronizar tu puntuación con los leaderboards de la plataforma, es estrictamente obligatorio disponer de una cuenta de usuario activa.
+      <div className="max-w-4xl mx-3 sm:mx-auto p-6 sm:p-8 mt-6 sm:mt-10 bg-black border border-red-900/50 rounded-3xl shadow-2xl relative overflow-hidden">
+        <div className="absolute inset-0 bg-red-900/10 pointer-events-none animate-pulse"></div>
+        <div className="relative z-10 flex flex-col items-center text-center">
+          <div className="w-20 h-20 sm:w-24 sm:h-24 bg-red-600 rounded-full mb-6 sm:mb-8 shadow-[0_0_50px_rgba(220,38,38,0.8)] border-4 border-red-800 flex items-center justify-center">
+            <div className="w-6 h-6 bg-yellow-400 rounded-full animate-ping opacity-75"></div>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-black text-red-500 mb-4 tracking-widest text-center uppercase font-mono">
+            ACCESO DENEGADO
+          </h2>
+          <p className="text-red-400 text-sm sm:text-lg mb-6 font-mono max-w-lg leading-relaxed text-center">
+            "Lo siento, Dave. Me temo que no puedo hacer eso. Tus credenciales no se encuentran en la base de datos principal."
           </p>
+          <div className="flex flex-col items-center gap-4">
+            <div className="px-4 py-2.5 bg-red-950/50 border border-red-800 rounded-xl text-red-300 font-mono text-xs sm:text-sm">
+              CÓDIGO DE ERROR: 401_UNAUTHORIZED
+            </div>
+            <button 
+              onClick={onBack} 
+              className="mt-2 bg-transparent border border-red-900/60 hover:border-red-500 text-red-400 hover:text-red-200 px-6 py-2 rounded-xl text-xs font-bold transition-all uppercase tracking-widest font-mono"
+            >
+              Volver al Panel Central
+            </button>
+          </div>
         </div>
-        <button onClick={onBack} className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 px-8 rounded-xl transition-all uppercase tracking-wider text-xs shadow-[0_0_15px_rgba(220,38,38,0.4)]">
-          ⬅ Volver al Panel Central
-        </button>
       </div>
     );
   }
@@ -313,7 +325,6 @@ export default function TimelineGame({ onBack }) {
         {/* --- CONTENEDOR DE TARJETAS --- */}
         <div className="flex flex-col lg:flex-row gap-4 items-stretch justify-center select-none mb-8">
           {movies.map((movie, index) => {
-            // El año solo se muestra al ganar, o si se ha fallado definitivamente de forma irreversible
             const isRevealed = gameState === 'verified_win' || gameState === 'verified_fail_final';
             
             return (
@@ -327,18 +338,15 @@ export default function TimelineGame({ onBack }) {
                   draggedIndex === index ? 'opacity-30 scale-95 border-blue-500' : 'border-gray-800 hover:border-gray-700'
                 } ${gameState === 'playing' ? 'cursor-grab active:cursor-grabbing' : ''}`}
               >
-                {/* Imagen del póster */}
                 <div className="w-16 sm:w-20 lg:w-full aspect-[2/3] bg-black rounded-xl overflow-hidden shrink-0 shadow-md">
                   <img src={movie.poster} alt={movie.title} className="w-full h-full object-cover pointer-events-none" />
                 </div>
 
-                {/* Texto e Información */}
                 <div className="flex-1 flex flex-col justify-center lg:text-center w-full min-w-0">
                   <h4 className="text-xs sm:text-sm font-bold text-gray-100 font-sans truncate lg:whitespace-normal lg:line-clamp-2">
                     {movie.title}
                   </h4>
                   
-                  {/* Revelado condicionado */}
                   {isRevealed ? (
                     <span className={`text-xs font-mono font-black mt-1 bg-gray-950 px-2 py-0.5 rounded border border-gray-800 w-fit lg:mx-auto ${gameState === 'verified_win' ? 'text-emerald-400' : 'text-red-400'}`}>
                       {movie.year}
@@ -350,7 +358,6 @@ export default function TimelineGame({ onBack }) {
                   )}
                 </div>
 
-                {/* BOTONES AUXILIARES (Móviles) */}
                 {gameState === 'playing' && (
                   <div className="flex flex-col gap-1 shrink-0 lg:absolute lg:top-2 lg:right-2 bg-gray-950/80 p-1 rounded-lg border border-gray-800">
                     <button 
@@ -374,7 +381,6 @@ export default function TimelineGame({ onBack }) {
           })}
         </div>
 
-        {/* --- CONTROLES Y FEEDBACK --- */}
         {gameState === 'playing' && (
           <button
             onClick={verifyChronology}

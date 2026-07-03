@@ -9,16 +9,18 @@ const STARTING_SCORE = 1000;
 const PENALTY_PER_ATTEMPT = 400; 
 
 // FUNCIÓN DE NORMALIZACIÓN ULTRA-INTELIGENTE
+// Unifica acentos, signos y traduce números romanos a números normales para evitar fallos en el buscador
 const normalizeForSearch = (str) => {
   if (!str) return '';
   let clean = str
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // Elimina acentos
-    .replace(/[^a-z0-9 ]/g, "")      // Elimina signos
-    .replace(/\s+/g, ' ')            // Elimina espacios dobles
+    .replace(/[\u0300-\u036f]/g, "") // Elimina acentos (á -> a, ó -> o)
+    .replace(/[^a-z0-9 ]/g, "")      // Elimina signos como dos puntos, guiones, etc.
+    .replace(/\s+/g, ' ')            // Elimina espacios dobles internos
     .trim();
   
+  // Conversión de números romanos comunes a números estándar
   clean = clean.replace(/\bii\b/g, "2");
   clean = clean.replace(/\biii\b/g, "3");
   clean = clean.replace(/\biv\b/g, "4");
@@ -35,6 +37,7 @@ export default function Wordle({ user }) {
   const [currentAttempt, setCurrentAttempt] = useState(0);
   const [guesses, setGuesses] = useState(Array(MAX_ATTEMPTS).fill(null));
   
+  // Estados del Buscador Predictivo
   const [inputValue, setInputValue] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -47,6 +50,7 @@ export default function Wordle({ user }) {
   const inputRef = useRef(null);
   const suggestionsRef = useRef(null);
 
+  // Cerrar sugerencias al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (suggestionsRef.current && !suggestionsRef.current.contains(event.target) && !inputRef.current.contains(event.target)) {
@@ -59,19 +63,19 @@ export default function Wordle({ user }) {
 
   if (!user) {
     return (
-      <div className="max-w-4xl mx-3 sm:mx-auto p-6 sm:p-8 mt-6 sm:mt-10 bg-black border border-red-900/50 rounded-3xl shadow-2xl relative overflow-hidden">
+      <div className="max-w-4xl mx-auto p-8 mt-10 bg-black border border-red-900/50 rounded-3xl shadow-2xl relative overflow-hidden">
         <div className="absolute inset-0 bg-red-900/10 pointer-events-none animate-pulse"></div>
         <div className="relative z-10 flex flex-col items-center text-center">
-          <div className="w-20 h-20 sm:w-24 sm:h-24 bg-red-600 rounded-full mb-6 sm:mb-8 shadow-[0_0_50px_rgba(220,38,38,0.8)] border-4 border-red-800 flex items-center justify-center">
-            <div className="w-6 h-6 bg-yellow-400 rounded-full animate-ping opacity-75"></div>
+          <div className="w-24 h-24 bg-red-600 rounded-full mb-8 shadow-[0_0_50px_rgba(220,38,38,0.8)] border-4 border-red-800 flex items-center justify-center">
+            <div className="w-8 h-8 bg-yellow-400 rounded-full animate-ping opacity-75"></div>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-red-500 mb-4 tracking-widest font-mono">
+          <h2 className="text-3xl font-black text-red-500 mb-4 tracking-widest font-mono">
             ACCESO DENEGADO
           </h2>
-          <p className="text-red-400 text-sm sm:text-lg mb-6 font-mono max-w-lg leading-relaxed">
+          <p className="text-red-400 text-lg mb-6 font-mono max-w-lg leading-relaxed">
             "Lo siento, Dave. Me temo que no puedo hacer eso. Tus credenciales no se encuentran en la base de datos principal."
           </p>
-          <div className="px-4 py-2.5 bg-red-950/50 border border-red-800 rounded-xl text-red-300 font-mono text-xs sm:text-sm">
+          <div className="px-6 py-3 bg-red-950/50 border border-red-800 rounded-xl text-red-300 font-mono text-sm">
             CÓDIGO DE ERROR: 401_UNAUTHORIZED
           </div>
         </div>
@@ -262,31 +266,31 @@ export default function Wordle({ user }) {
 
   if (gameState === 'loading') {
     return (
-      <div className="max-w-3xl mx-3 sm:mx-auto p-8 sm:p-12 text-center text-gray-500 font-medium bg-white rounded-3xl shadow-sm border border-gray-100 my-4 sm:my-6">
-        <span className="text-3xl sm:text-4xl animate-spin inline-block mb-4">🎬</span>
-        <p className="text-sm sm:text-base">Cargando fotogramas y sincronizando catálogo...</p>
+      <div className="max-w-3xl mx-auto p-12 text-center text-gray-500 font-medium bg-white rounded-3xl shadow-sm border border-gray-100 my-6">
+        <span className="text-4xl animate-spin inline-block mb-4">🎬</span>
+        <p>Cargando fotogramas y sincronizando catálogo...</p>
       </div>
     );
   }
 
   if (gameState === 'completed') {
     return (
-      <div className="max-w-3xl mx-3 sm:mx-auto p-6 sm:p-12 bg-gray-900 text-white rounded-3xl shadow-xl text-center my-4 sm:my-6 border border-gray-800">
-        <span className="text-5xl sm:text-6xl block mb-4 sm:mb-6">🏆🎬</span>
-        <h2 className="text-2xl sm:text-3xl font-black mb-2 tracking-tight">¡Ronda Completada!</h2>
-        <p className="text-gray-400 text-sm sm:text-base max-w-md mx-auto mb-6 sm:mb-8">
+      <div className="max-w-3xl mx-auto p-8 sm:p-12 bg-gray-900 text-white rounded-3xl shadow-xl text-center my-6 border border-gray-800">
+        <span className="text-6xl block mb-6">🏆🎬</span>
+        <h2 className="text-3xl font-black mb-2 tracking-tight">¡Ronda Completada!</h2>
+        <p className="text-gray-400 max-w-md mx-auto mb-8 text-base">
           Has completado el juego de las <strong>{TOTAL_MOVIES_PER_ROUND} películas</strong>.
         </p>
         
-        <div className="inline-block bg-gray-800 border border-gray-700 px-6 sm:px-8 py-4 sm:py-6 rounded-2xl mb-6 sm:mb-8">
-          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-400 block mb-1">Puntuación Final</span>
-          <span className="text-3xl sm:text-4xl font-black text-amber-400 font-mono">{sessionScore} pts</span>
+        <div className="inline-block bg-gray-800 border border-gray-700 px-8 py-6 rounded-2xl mb-8">
+          <span className="text-xs font-bold uppercase tracking-widest text-gray-400 block mb-1">Puntuación Final</span>
+          <span className="text-4xl font-black text-amber-400 font-mono">{sessionScore} pts</span>
         </div>
 
         <div>
           <button 
             onClick={resetFullSession} 
-            className="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-gray-950 px-8 py-3.5 sm:py-4 rounded-xl font-extrabold shadow-lg transition-colors text-base sm:text-lg"
+            className="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-gray-950 px-8 py-4 rounded-xl font-extrabold shadow-lg transition-colors text-lg"
           >
             Jugar Otra Vez
           </button>
@@ -298,29 +302,29 @@ export default function Wordle({ user }) {
   const currentPotentialPoints = STARTING_SCORE - (currentAttempt * PENALTY_PER_ATTEMPT);
 
   return (
-    <div className="max-w-3xl mx-2 xs:mx-4 sm:mx-auto p-4 sm:p-8 bg-white rounded-3xl shadow-sm border border-gray-100 my-4 sm:my-6">
+    <div className="max-w-3xl mx-auto p-6 sm:p-8 bg-white rounded-3xl shadow-sm border border-gray-100 my-6">
       
-      <div className="text-center mb-4 sm:mb-6">
-        <h2 className="text-xl sm:text-3xl font-black text-gray-900 tracking-tight flex items-center justify-center gap-2">
+      <div className="text-center mb-6">
+        <h2 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight flex items-center justify-center gap-2">
           🧩 Wordle de Cine
         </h2>
-        <div className="flex justify-center flex-wrap gap-1.5 sm:gap-2.5 mt-3 sm:mt-4">
-          <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-bold border border-purple-200">
-            Película {movieRound}/{TOTAL_MOVIES_PER_ROUND}
+        <div className="flex justify-center flex-wrap gap-3 mt-4">
+          <span className="bg-purple-50 text-purple-700 px-3 py-1 rounded-full text-xs font-bold border border-purple-200">
+            Película {movieRound} de {TOTAL_MOVIES_PER_ROUND}
           </span>
-          <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-bold border border-blue-200">
-            Intento {currentAttempt + 1}/{MAX_ATTEMPTS}
+          <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-bold border border-blue-200">
+            Intento {currentAttempt + 1} / {MAX_ATTEMPTS}
           </span>
-          <span className="bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-bold border border-amber-200">
-            {currentPotentialPoints} pts
+          <span className="bg-amber-50 text-amber-700 px-3 py-1 rounded-full text-xs font-bold border border-amber-200">
+            Puntos: {currentPotentialPoints}
           </span>
-          <span className="bg-gray-900 text-white px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-bold border border-gray-800">
-            Total: {sessionScore}
+          <span className="bg-gray-900 text-white px-3 py-1 rounded-full text-xs font-bold border border-gray-800">
+            Total: {sessionScore} pts
           </span>
         </div>
       </div>
 
-      <div className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-inner mb-4 sm:mb-6 border border-gray-200">
+      <div className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-inner mb-6 border border-gray-200">
         {images[currentAttempt] ? (
           <img 
             src={images[gameState === 'playing' ? currentAttempt : MAX_ATTEMPTS - 1]} 
@@ -328,16 +332,15 @@ export default function Wordle({ user }) {
             className="w-full h-full object-cover select-none pointer-events-none transition-opacity duration-500"
           />
         ) : (
-          <div className="flex items-center justify-center w-full h-full text-xs sm:text-sm text-gray-600">Cargando fotograma...</div>
+          <div className="flex items-center justify-center w-full h-full text-gray-600">Cargando fotograma...</div>
         )}
       </div>
 
-      {/* DISEÑO RESPONSIVE AJUSTADO: Grid de 2x2 en móviles y de 1x4 (línea continua) en pantallas sm */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4 sm:mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6">
         {guesses.map((guess, idx) => (
           <div 
             key={idx} 
-            className={`h-10 flex items-center justify-center px-2 rounded-xl border text-[11px] sm:text-xs font-bold transition-all ${
+            className={`h-10 flex items-center justify-center px-2 rounded-xl border text-xs font-bold transition-all ${
               guess 
                 ? guess.isCorrect 
                   ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
@@ -360,8 +363,7 @@ export default function Wordle({ user }) {
 
       {gameState === 'playing' && (
         <form onSubmit={handleFormSubmit} className="relative">
-          {/* Formulario apilado en columna en móvil, línea horizontal en escritorio */}
-          <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex gap-2">
             <div className="flex-1 relative">
               <input
                 ref={inputRef}
@@ -369,17 +371,16 @@ export default function Wordle({ user }) {
                 value={inputValue}
                 onChange={handleInputChange}
                 onFocus={() => inputValue.trim().length > 1 && setShowSuggestions(true)}
-                placeholder="Escribe el título de la película..."
-                // Usamos text-base de forma intencionada para deshabilitar el auto-zoom nativo en navegadores iOS
-                className="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-xl px-4 py-3 text-base sm:text-sm font-bold focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all"
+                placeholder="Empieza a escribir el título de la película..."
+                className="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-xl px-4 py-3 font-bold focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all"
                 autoComplete="off"
               />
               
-              {/* DESPLEGABLE CON CONTROL DE ALTURA EN MÓVIL: Evita desbordar el contenedor principal */}
+              {/* MEJORA DEFINITIVA: Desplegable en formato GRID panorámico y sin cortes de altura */}
               {showSuggestions && suggestions.length > 0 && (
                 <ul 
                   ref={suggestionsRef}
-                  className="absolute left-0 right-0 mt-2 bg-white border border-gray-200 rounded-2xl shadow-2xl z-50 p-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[260px] sm:max-h-none overflow-y-auto sm:overflow-visible"
+                  className="absolute left-0 right-0 mt-2 bg-white border border-gray-200 rounded-2xl shadow-2xl z-50 p-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5"
                 >
                   {suggestions.map((movie, index) => (
                     <li 
@@ -398,7 +399,7 @@ export default function Wordle({ user }) {
             <button
               type="submit"
               disabled={!inputValue.trim()}
-              className="w-full sm:w-auto bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 text-white px-6 py-3 rounded-xl font-bold transition-colors shadow-sm text-sm sm:text-base h-[46px] sm:h-auto"
+              className="bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 text-white px-6 py-3 rounded-xl font-bold transition-colors shadow-sm self-start"
             >
               Probar
             </button>
@@ -408,7 +409,7 @@ export default function Wordle({ user }) {
             <button 
               type="button"
               onClick={skipAttempt}
-              className="text-xs sm:text-sm font-bold text-gray-400 hover:text-gray-700 transition-colors underline decoration-gray-300 underline-offset-4 py-1"
+              className="text-sm font-bold text-gray-400 hover:text-gray-700 transition-colors underline decoration-gray-300 underline-offset-4"
             >
               Pasar fotograma voluntariamente (-{PENALTY_PER_ATTEMPT} pts)
             </button>
@@ -417,22 +418,22 @@ export default function Wordle({ user }) {
       )}
 
       {gameState === 'won' && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 sm:p-6 text-center animate-fade-in shadow-sm mt-4">
-          <h3 className="text-xl sm:text-2xl font-black text-emerald-700 mb-2">¡Correcto! 🏆</h3>
-          <p className="text-sm sm:text-base text-emerald-600 mb-4 font-medium">
-            La película era exactamente <strong>{targetPoolTitle}</strong>. ¡Has ganado <strong className="text-base sm:text-lg">{scoreEarned} puntos</strong>!
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-center animate-fade-in shadow-sm mt-4">
+          <h3 className="text-2xl font-black text-emerald-700 mb-2">¡Correcto! 🏆</h3>
+          <p className="text-emerald-600 mb-4 font-medium">
+            La película era exactamente <strong>{targetPoolTitle}</strong>. ¡Has ganado <strong className="text-lg">{scoreEarned} puntos</strong>!
           </p>
-          <button type="button" onClick={handleAdvanceRound} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-xl font-bold shadow-md transition-colors text-sm sm:text-base">
+          <button type="button" onClick={handleAdvanceRound} className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-xl font-bold shadow-md transition-colors">
             {movieRound < TOTAL_MOVIES_PER_ROUND ? `Siguiente Película (${movieRound + 1}/${TOTAL_MOVIES_PER_ROUND})` : 'Ver Resultado Global'}
           </button>
         </div>
       )}
 
       {gameState === 'lost' && (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-5 sm:p-6 text-center animate-fade-in shadow-sm mt-4">
-          <h3 className="text-xl sm:text-2xl font-black text-red-700 mb-2">¡Se agotaron los intentos! 💔</h3>
-          <p className="text-sm sm:text-base text-red-600 mb-4 font-medium">La película correcta era <strong>{targetPoolTitle}</strong>.</p>
-          <button type="button" onClick={handleAdvanceRound} className="w-full sm:w-auto bg-gray-900 hover:bg-black text-white px-8 py-3 rounded-xl font-bold shadow-md transition-colors text-sm sm:text-base">
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center animate-fade-in shadow-sm mt-4">
+          <h3 className="text-2xl font-black text-red-700 mb-2">¡Se agotaron los intentos! 💔</h3>
+          <p className="text-red-600 mb-4 font-medium">La película correcta era <strong>{targetPoolTitle}</strong>.</p>
+          <button type="button" onClick={handleAdvanceRound} className="bg-gray-900 hover:bg-black text-white px-8 py-3 rounded-xl font-bold shadow-md transition-colors">
             {movieRound < TOTAL_MOVIES_PER_ROUND ? `Siguiente Película (${movieRound + 1}/${TOTAL_MOVIES_PER_ROUND})` : 'Ver Resultado Global'}
           </button>
         </div>
