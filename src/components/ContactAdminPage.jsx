@@ -5,20 +5,35 @@ export default function ContactAdminPage({ session, onBack }) {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
 
-  // BLOQUEO DE SEGURIDAD PARA INVITADOS
-  if (session?.isGuest) {
+  // --- CONTROL DE ACCESO CON PERSONALIDAD HAL 9000 ---
+  if (!session || !session.user || session?.isGuest) {
     return (
-      <div className="max-w-2xl mx-auto p-6 bg-amber-50 rounded-3xl border border-amber-100 text-center my-6 mx-4 sm:mx-auto">
-        <span className="text-3xl sm:text-4xl">🔒</span>
-        <h2 className="text-lg sm:text-xl font-black text-amber-950 mt-3">Función No Disponible</h2>
-        <p className="text-amber-700 text-xs sm:text-sm mt-1 font-medium">
-          Debes iniciar sesión con una cuenta registrada en el sistema para poder enviar sugerencias o reportes al administrador.
+      <div className="max-w-2xl mx-auto p-8 bg-zinc-950 rounded-3xl border border-red-900/40 text-center my-6 mx-4 sm:mx-auto shadow-2xl relative overflow-hidden">
+        {/* El Ojo de HAL 9000 */}
+        <div className="flex justify-center mb-6">
+          <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center border-2 border-zinc-600 shadow-inner">
+            <div className="w-6 h-6 rounded-full bg-red-600 animate-pulse border border-yellow-400 shadow-[0_0_15px_rgba(239,68,68,0.8)]" />
+          </div>
+        </div>
+
+        <h2 className="text-xl sm:text-2xl font-black text-zinc-100 tracking-wider uppercase font-mono">
+          Anomalía de Autenticación
+        </h2>
+        
+        // Cambia la línea 21 por esta versión ultraliteral:
+        <p className="text-red-400 text-xs sm:text-sm mt-4 font-mono leading-relaxed max-w-md mx-auto">
+          "Lo siento, Dave. Me temo que no puedo hacer eso. Esta misión es demasiado importante como para permitir que un agente no autenticado altere los registros del administrador."
         </p>
+        
+        <p className="text-zinc-500 text-[10px] sm:text-xs mt-2 font-mono italic">
+          Tu ID actual está clasificado como: ENTIDAD_NO_REGISTRADA.
+        </p>
+
         <button 
           onClick={onBack} 
-          className="mt-5 px-5 py-2 bg-amber-600 text-white font-bold rounded-xl text-xs hover:bg-amber-700 transition-colors shadow-sm"
+          className="mt-6 px-6 py-2.5 bg-red-950 text-red-400 font-bold font-mono rounded-xl text-xs hover:bg-red-900 hover:text-red-200 border border-red-800/60 transition-all shadow-md uppercase tracking-widest"
         >
-          Volver a la Biblioteca
+          Regresar a la Biblioteca
         </button>
       </div>
     );
@@ -30,8 +45,7 @@ export default function ContactAdminPage({ session, onBack }) {
 
     setSending(true);
     try {
-      // 1. BUSQUEDA INTELIGENTE DEL ID REAL EN LA TABLA PROFILES
-      // Primero intentamos buscar si existe por el ID de la sesión actual
+      // 1. BÚSQUEDA INTELIGENTE DEL ID REAL EN LA TABLA PROFILES
       let finalUserId = session.user.id;
 
       const { data: profileById } = await supabase
@@ -40,8 +54,7 @@ export default function ContactAdminPage({ session, onBack }) {
         .eq('id', session.user.id)
         .maybeSingle();
 
-      // Si no se encuentra (como le pasa a prueba2 por la desincronización)
-      // lo buscamos de forma segura por su nombre de usuario
+      // Si no se encuentra por ID debido a desincronizaciones de testeo
       if (!profileById) {
         const currentUsername = session.user.user_metadata?.username || session.user.email?.split('@')[0];
         
@@ -52,7 +65,6 @@ export default function ContactAdminPage({ session, onBack }) {
           .maybeSingle();
 
         if (profileByUsername) {
-          // Si lo encuentra por nombre, usamos el ID que tenga en la tabla (sea el que sea)
           finalUserId = profileByUsername.id;
         } else {
           throw new Error('No se ha podido vincular tu perfil de usuario.');
