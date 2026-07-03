@@ -115,7 +115,6 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
 
         {activeTab === 'feed' && (
           <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-3 w-full">
-            {/* Contenedor de filtros adaptativo: rejilla en móvil, flex row en pantallas grandes */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full lg:w-auto">
               <select 
                 className="w-full bg-white border border-gray-200 text-gray-700 py-2.5 px-4 rounded-xl shadow-sm outline-none text-base sm:text-sm font-semibold cursor-pointer" 
@@ -149,7 +148,6 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
               </select>
             </div>
             
-            {/* Buscador a ancho completo en móvil */}
             <input 
               type="text" 
               placeholder="Buscar título..." 
@@ -172,7 +170,6 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
                       <span className="bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">{m.media_type === 'tv' ? 'Serie' : 'Película'}</span>
                     </div>
                     {isAdmin && (
-                      /* CORRECCIÓN DE ACCESIBILIDAD MÓVIL: visible por defecto en pantallas táctiles pequeñas (w-9 h-9 para mejor zona de pulsación), se oculta y usa hover únicamente en sm (ordenadores) */
                       <button 
                         onClick={(e) => handleDeleteMediaItem(m.id, m.title, e)} 
                         className="absolute top-3 right-3 bg-black/60 hover:bg-red-600 text-white w-9 h-9 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center transition-all z-10 sm:opacity-0 sm:group-hover:opacity-100 active:scale-90"
@@ -193,7 +190,6 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
               ))}
           </div>
 
-          {/* Paginador optimizado para no romperse en pantallas estrechas */}
           <div className="flex justify-between items-center mt-8 sm:mt-12 pt-6 border-t border-gray-100 gap-2">
             <button 
               disabled={page === 0} 

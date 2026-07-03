@@ -9,7 +9,7 @@ export default function AdminUserPanel({ isAdmin }) {
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [error, setError] = useState(null);
 
-  // NUEVOS ESTADOS PARA LA PAGINACIÓN
+  // ESTADOS PARA LA PAGINACIÓN
   const [currentPage, setCurrentPage] = useState(1);
   const [totalUsers, setTotalUsers] = useState(0);
   const USERS_PER_PAGE = 20;
@@ -66,7 +66,6 @@ export default function AdminUserPanel({ isAdmin }) {
   const fetchSuggestions = async () => {
     try {
       setLoadingSuggestions(true);
-      // Relación directa: obtenemos el mensaje y el nombre del usuario desde profiles
       const { data, error: sugError } = await supabase
         .from('admin_suggestions')
         .select(`
@@ -87,13 +86,17 @@ export default function AdminUserPanel({ isAdmin }) {
     }
   };
 
+  // --- FUNCIÓN ADAPTADA PARA TRABAJAR CON EL TRIGGER SQL ---
   const handleDeleteUser = async (userId, userName) => {
     const confirmDelete = window.confirm(
-      `⚠️ ¿ESTÁS SEGURO?\n\nVas a eliminar permanentemente al usuario "${userName}".\n\nEsta acción borrará todas sus reseñas guardadas en la tabla de críticas y revocará su perfil por completo.`
+      `⚠️ ¿ESTÁS SEGURO?\n\nVas a eliminar permanentemente al usuario "${userName}".\n\nGracias al Trigger SQL activo, esta acción borrará de golpe:\n1. Todas sus reseñas en la tabla de críticas.\n2. Su perfil público en la tabla profiles.\n3. Su cuenta y correo electrónico en Authentication.`
     );
 
     if (confirmDelete) {
       try {
+        setLoading(true);
+
+        // 1. Primero eliminamos sus reseñas manualmente para limpiar sus dependencias
         const { error: reviewsDeleteError } = await supabase
           .from('reviews')
           .delete()
@@ -101,6 +104,9 @@ export default function AdminUserPanel({ isAdmin }) {
 
         if (reviewsDeleteError) throw reviewsDeleteError;
 
+        // 2. Eliminamos la fila en la tabla 'profiles'
+        // EN ESTE MISMO INSTANTE, el trigger de Supabase detectará la baja
+        // y destruirá automáticamente el registro en auth.users (Authentication)
         const { data: deletedData, error: profileDeleteError } = await supabase
           .from('profiles')
           .delete()
@@ -110,15 +116,17 @@ export default function AdminUserPanel({ isAdmin }) {
         if (profileDeleteError) throw profileDeleteError;
 
         if (!deletedData || deletedData.length === 0) {
-          alert("⚠️ Las reseñas se borraron, pero el perfil NO se ha podido eliminar.\n\nEsto ocurre porque la política de seguridad (RLS) de Supabase está bloqueando la acción. Asegúrate de haber ejecutado el comando SQL para permitir a los administradores borrar perfiles.");
+          alert("⚠️ Las reseñas se borraron, pero el perfil NO se ha podido eliminar.\n\nVerifica que tus políticas de seguridad RLS permitan el borrado a los usuarios administradores.");
           return;
         }
 
-        alert(`Éxito: El usuario "${userName}" y sus reseñas correspondientes han sido eliminados del sistema.`);
+        alert(`Éxito total: El usuario "${userName}", sus reseñas y sus accesos de autenticación han sido desvinculados por completo del sistema.`);
         fetchUsers();
       } catch (err) {
         console.error("Error al procesar la baja del usuario:", err);
         alert("Ocurrió un error en Supabase al intentar borrar los registros.");
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -131,8 +139,6 @@ export default function AdminUserPanel({ isAdmin }) {
         .eq('id', id);
 
       if (deleteError) throw deleteError;
-      
-      // Filtramos localmente para quitarlo inmediatamente de la vista
       setSuggestions(prev => prev.filter(item => item.id !== id));
     } catch (err) {
       console.error("Error al completar la sugerencia:", err);
@@ -282,7 +288,7 @@ export default function AdminUserPanel({ isAdmin }) {
         </>
       )}
 
-      {/* NUEVO: CONTENIDO DE LA TAB DE SUGERENCIAS */}
+      {/* CONTENIDO DE LA TAB DE SUGERENCIAS */}
       {activeSubTab === 'suggestions' && (
         <>
           {loadingSuggestions ? (

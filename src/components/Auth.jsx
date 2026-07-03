@@ -74,12 +74,12 @@ const CINEMA_QUOTES = [
   "No tenéis ninguna posibilidad, pero... contáis con mi simpatía. (Alien, el octavo pasajero)"
 ];
 
-export default function Auth({ onGuestLogin }) {
+export default function Auth({ onClose }) { // Removed 'onGuestLogin' prop
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
-  const [view, setView] = useState('login'); // 'login', 'signup', 'forgot'
+  const [view, setView] = useState('login'); 
   const [message, setMessage] = useState('');
   const [quote, setQuote] = useState(CINEMA_QUOTES[0]);
 
@@ -110,7 +110,6 @@ export default function Auth({ onGuestLogin }) {
     } else if (view === 'login') {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        // TRADUCCIÓN HUMANA DE ERRORES CRÍTICOS DE SUPABASE
         if (error.message === 'Email not confirmed') {
           setMessage('⚠️ Tu correo electrónico aún no ha sido verificado. Por favor, haz clic en el enlace que enviamos a tu bandeja de entrada antes de acceder.');
         } else if (error.message === 'Invalid login credentials') {
@@ -130,10 +129,20 @@ export default function Auth({ onGuestLogin }) {
   };
 
   return (
-    <div className="fixed inset-0 w-full h-full bg-black flex flex-col md:grid md:grid-rows-[auto_1fr_auto] items-center justify-center md:justify-items-center p-4 font-mono text-white overflow-hidden">
+    <div className="fixed inset-0 w-full h-full bg-black/90 backdrop-blur-md flex flex-col md:grid md:grid-rows-[auto_1fr_auto] items-center justify-center md:justify-items-center p-4 font-mono text-white overflow-hidden z-[100]">
       
-      <div className="w-20 h-20 md:w-32 md:h-32 rounded-full border-4 border-red-900 bg-red-950/20 shadow-[0_0_50px_rgba(220,38,38,0.5)] flex items-center justify-center shrink-0 mb-6 md:mb-0">
-        <div className="w-10 h-10 md:w-16 md:h-16 rounded-full bg-red-600 shadow-[0_0_20px_white]" />
+      {onClose && (
+        <button 
+          onClick={onClose}
+          className="absolute top-6 right-6 border border-gray-800 bg-gray-950/50 text-gray-500 hover:text-red-500 hover:border-red-900 px-3 py-1.5 rounded-xl text-xs font-bold transition-all uppercase tracking-widest cursor-pointer"
+        >
+          ✕ Cancelar
+        </button>
+      )}
+
+      {/* HAL EYE WITH WORDLE-STYLE ANIMATION */}
+      <div className="w-20 h-20 md:w-24 md:h-24 bg-red-600 rounded-full mb-6 md:mb-0 shadow-[0_0_50px_rgba(220,38,38,0.8)] border-4 border-red-800 flex items-center justify-center shrink-0">
+        <div className="w-6 h-6 bg-yellow-400 rounded-full animate-ping opacity-75"></div>
       </div>
 
       <div className="w-full max-w-md md:w-[600px] md:h-[480px] p-6 md:p-12 bg-gray-950/80 backdrop-blur-md border border-gray-800 rounded-2xl shadow-2xl flex flex-col justify-center shrink-0">
@@ -162,16 +171,7 @@ export default function Auth({ onGuestLogin }) {
               {loading ? 'Procesando...' : view === 'signup' ? 'Crear cuenta' : view === 'forgot' ? 'Enviar enlace' : 'Acceder al Sistema'}
             </button>
 
-            {/* BOTÓN NUEVO: Permite el bypass directo al modo observador únicamente en la vista login */}
-            {view === 'login' && (
-              <button 
-                type="button"
-                onClick={onGuestLogin}
-                className="w-full bg-transparent border border-gray-700 text-gray-400 p-3 md:p-4 rounded-lg font-bold hover:border-gray-500 hover:text-white transition-all uppercase tracking-widest text-center text-sm"
-              >
-                👁️ Entrar como observador
-              </button>
-            )}
+            {/* DELETED: The 'onGuestLogin' observer button is gone from here */}
             
             <div className="flex flex-col gap-2">
               <button type="button" className="text-xs md:text-sm text-gray-500 hover:text-red-400 text-center" onClick={() => setView(view === 'login' ? 'signup' : 'login')}>

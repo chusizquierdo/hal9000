@@ -16,10 +16,11 @@ import ContactAdminPage from './components/ContactAdminPage';
 import QuizGame from './components/QuizGame';
 import PixelGame from './components/PixelGame';
 import TimelineGame from './components/TimelineGame';
-import Wordle from './components/Wordle'; // <--- AÑADIDO 1: Importación
+import Wordle from './components/Wordle';
 
 export default function App() {
   const [session, setSession] = useState(null);
+  const [showAuthModal, setShowAuthModal] = useState(false); // Estado para abrir/cerrar el Login flotante
   const [currentView, setCurrentView] = useState('dashboard');
   const [navigationStack, setNavigationStack] = useState([]);
   const [activeTab, setActiveTab] = useState('feed'); 
@@ -56,12 +57,16 @@ export default function App() {
     }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setSession(session);
+      if (session) {
+        setSession(session);
+        setShowAuthModal(false);
+      }
     });
 
     supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
         setSession(session);
+        setShowAuthModal(false); // Cierra el modal automáticamente al iniciar sesión
       } else {
         setSession(null);
         setIsAdmin(false);
@@ -132,6 +137,7 @@ export default function App() {
     setIsAdmin(false);
     setCurrentView('dashboard');
     setNavigationStack([]);
+    setShowAuthModal(false);
   };
 
   const handleLogout = async () => {
@@ -158,7 +164,7 @@ export default function App() {
   };
 
   const navigateToMyReviews = () => {
-    if (session?.isGuest) return;
+    if (session?.isGuest || !session) return;
     setSelectedMediaId(null);
     setActiveTab('feed');
     setCurrentView('my-reviews');
@@ -167,7 +173,7 @@ export default function App() {
   };
 
   const navigateToWatchlist = () => {
-    if (session?.isGuest) return;
+    if (session?.isGuest || !session) return;
     setSelectedMediaId(null);
     setCurrentView('watchlist');
     setNavigationStack([]);
@@ -175,7 +181,7 @@ export default function App() {
   };
 
   const navigateToSettings = () => {
-    if (session?.isGuest) return;
+    if (session?.isGuest || !session) return;
     setSelectedMediaId(null);
     setCurrentView('settings');
     setNavigationStack([]);
@@ -203,7 +209,7 @@ export default function App() {
       setCurrentView('pixel');
     } else if (tabName === 'timeline') {
       setCurrentView('timeline');
-    } else if (tabName === 'wordle') { // <--- AÑADIDO 2: Control de vista
+    } else if (tabName === 'wordle') { 
       setCurrentView('wordle');
     } else {
       setCurrentView('dashboard');
@@ -214,22 +220,13 @@ export default function App() {
     return <UpdatePassword />;
   }
 
-  if (!session) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Auth onGuestLogin={handleGuestLogin} />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-50 bg-white shadow-sm border-b border-gray-100">
         <nav className="bg-white">
-          {/* Ajustado gap-2 y padding para evitar colisiones en pantallas de 320px */}
           <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 flex justify-between items-center gap-2">
             
-            {/* Contenedor del Logo protegido contra encogimiento involuntario */}
+            {/* Contenedor del Logo */}
             <div className="relative group flex items-center shrink-0">
               <h1 
                 className="text-lg sm:text-2xl font-black text-gray-900 tracking-tighter hover:text-blue-600 transition-colors flex items-center gap-2 sm:gap-4 cursor-pointer"
@@ -243,7 +240,6 @@ export default function App() {
                 {isAdmin && <span className="hidden xs:inline-block sm:inline text-[9px] sm:text-[10px] bg-red-100 text-red-600 font-extrabold px-1.5 py-0.5 rounded-md uppercase tracking-wide">Admin</span>}
               </h1>
               
-              {/* MEJORA RESPONSIVE: Ancho máximo dinámico para que no se salga de la pantalla en móviles pequeños */}
               <div 
                 className={`absolute top-12 left-0 w-80 sm:w-96 max-w-[calc(100vw-2rem)] p-5 sm:p-6 bg-gray-900 text-white text-sm sm:text-base font-medium leading-relaxed rounded-xl shadow-2xl transition-all duration-300 z-[60] ${isTooltipOpen ? 'opacity-100 visible' : 'opacity-0 invisible md:group-hover:opacity-100 md:group-hover:visible'} pointer-events-auto`}
                 onClick={(e) => {
@@ -255,62 +251,72 @@ export default function App() {
               </div>
             </div>
 
-            {/* Contenedor de botones derecho protegido contra desbordamiento */}
+            {/* Contenedor de botones derecho adaptado al login modular */}
             <div className="flex gap-2 sm:gap-4 items-center shrink-0">
-              {!session.isGuest && (
+              {session && !session.isGuest && (
                 <button 
                   onClick={() => { navigateTo('create'); setIsDropdownOpen(false); }} 
                   className="inline-flex items-center gap-1 sm:gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-2.5 sm:px-5 py-2 rounded-xl font-bold hover:from-blue-700 hover:to-indigo-700 active:scale-95 transition-all shadow-md hover:shadow-lg text-[11px] sm:text-sm tracking-tight border border-blue-500/10 shrink-0"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5 sm:w-4 sm:h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                  {/* Texto dinámico: oculta la palabra "Nueva" en teléfonos muy pequeños para que quepa perfectamente */}
                   <span><span className="hidden min-[375px]:inline">Nueva </span>Reseña</span>
                 </button>
               )}
-              <div className="relative shrink-0">
-                <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="relative flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full focus:outline-none transition-all duration-200 border-2 border-transparent hover:border-blue-500 hover:shadow-md">
-                  {profile.avatar_url ? <img src={profile.avatar_url} alt="User Avatar" className="w-full h-full rounded-full object-cover" /> : <div className="w-full h-full rounded-full bg-blue-600 text-white flex items-center justify-center text-xs sm:text-sm font-black uppercase tracking-wider shadow-inner">{profile.username[0]}</div>}
-                  {isAdmin && suggestionCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
-                  )}
-                </button>
-                {isDropdownOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setIsDropdownOpen(false)}></div>
-                    <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 py-2 origin-top-right transition-all">
-                      <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50 rounded-t-2xl flex items-center gap-3">
-                        {profile.avatar_url ? <img src={profile.avatar_url} alt="User Avatar Large" className="w-11 h-11 rounded-full object-cover border border-gray-200 shadow-sm" /> : <div className="w-11 h-11 rounded-full bg-blue-600 text-white flex items-center justify-center text-base font-black uppercase">{profile.username[0]}</div>}
-                        <div className="overflow-hidden">
-                          <p className="text-sm font-black text-gray-900 truncate">{profile.username}</p>
-                          <p className="text-xs text-gray-400 truncate font-medium">{session.isGuest ? 'Modo de lectura' : session.user.email}</p>
+
+              {session ? (
+                <div className="relative shrink-0">
+                  <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="relative flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full focus:outline-none transition-all duration-200 border-2 border-transparent hover:border-blue-500 hover:shadow-md">
+                    {profile.avatar_url ? <img src={profile.avatar_url} alt="User Avatar" className="w-full h-full rounded-full object-cover" /> : <div className="w-full h-full rounded-full bg-blue-600 text-white flex items-center justify-center text-xs sm:text-sm font-black uppercase tracking-wider shadow-inner">{profile.username[0]}</div>}
+                    {isAdmin && suggestionCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
+                    )}
+                  </button>
+                  {isDropdownOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setIsDropdownOpen(false)}></div>
+                      <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 py-2 origin-top-right transition-all">
+                        <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50 rounded-t-2xl flex items-center gap-3">
+                          {profile.avatar_url ? <img src={profile.avatar_url} alt="User Avatar Large" className="w-11 h-11 rounded-full object-cover border border-gray-200 shadow-sm" /> : <div className="w-11 h-11 rounded-full bg-blue-600 text-white flex items-center justify-center text-base font-black uppercase">{profile.username[0]}</div>}
+                          <div className="overflow-hidden">
+                            <p className="text-sm font-black text-gray-900 truncate">{profile.username}</p>
+                            <p className="text-xs text-gray-400 truncate font-medium">{session.isGuest ? 'Modo de lectura' : session.user.email}</p>
+                          </div>
                         </div>
+                        {!session.isGuest ? (
+                          <>
+                            <button onClick={navigateToSettings} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-bold flex items-center gap-2 transition-colors mt-1">⚙️ Configurar Perfil</button>
+                            <button onClick={navigateToMyReviews} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors">📂 Mis reseñas (Biblioteca)</button>
+                            <button onClick={navigateToWatchlist} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors">⏳ Películas pendientes</button>
+                            
+                            {isAdmin && (
+                              <button onClick={navigateToAdminPanel} className="w-full text-left px-4 py-2.5 text-sm text-purple-600 hover:bg-purple-50 font-black flex items-center justify-between transition-colors border-t border-gray-100 pt-2">
+                                <span className="flex items-center gap-2">👑 Panel de Admin</span>
+                                {suggestionCount > 0 && (
+                                  <span className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm animate-bounce">
+                                    {suggestionCount}
+                                  </span>
+                                )}
+                              </button>
+                            )}
+                            
+                            <div className="border-t border-gray-100 mt-2 pt-1.5"><button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-bold flex items-center gap-2 transition-colors">🚪 Cerrar sesión</button></div>
+                          </>
+                        ) : (
+                          <div className="p-1 mt-1 flex flex-col gap-1"><button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm text-blue-600 bg-blue-50/50 hover:bg-blue-600 hover:text-white font-bold flex items-center gap-2 transition-colors rounded-xl">🚪 Salir / Iniciar Sesión</button></div>
+                        )}
                       </div>
-                      {!session.isGuest ? (
-                        <>
-                          <button onClick={navigateToSettings} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-bold flex items-center gap-2 transition-colors mt-1">⚙️ Configurar Perfil</button>
-                          <button onClick={navigateToMyReviews} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors">📂 Mis reseñas (Biblioteca)</button>
-                          <button onClick={navigateToWatchlist} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors">⏳ Películas pendientes</button>
-                          
-                          {isAdmin && (
-                            <button onClick={navigateToAdminPanel} className="w-full text-left px-4 py-2.5 text-sm text-purple-600 hover:bg-purple-50 font-black flex items-center justify-between transition-colors border-t border-gray-100 pt-2">
-                              <span className="flex items-center gap-2">👑 Panel de Admin</span>
-                              {suggestionCount > 0 && (
-                                <span className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm animate-bounce">
-                                  {suggestionCount}
-                                </span>
-                              )}
-                            </button>
-                          )}
-                          
-                          <div className="border-t border-gray-100 mt-2 pt-1.5"><button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-bold flex items-center gap-2 transition-colors">🚪 Cerrar sesión</button></div>
-                        </>
-                      ) : (
-                        <div className="p-1 mt-1 flex flex-col gap-1"><button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm text-blue-600 bg-blue-50/50 hover:bg-blue-600 hover:text-white font-bold flex items-center gap-2 transition-colors rounded-xl">🚪 Salir / Iniciar Sesión</button></div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
+                    </>
+                  )}
+                </div>
+              ) : (
+                /* ACCESO CONFIGURADO: Botón de Iniciar sesión si no hay usuario autenticado */
+                <button 
+                  onClick={() => setShowAuthModal(true)} 
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-md hover:shadow-lg active:scale-95 shrink-0"
+                >
+                  Iniciar Sesión
+                </button>
+              )}
             </div>
           </div>
         </nav>
@@ -321,19 +327,19 @@ export default function App() {
         {currentView === 'dashboard' && (
           <Dashboard key={refreshKey} isAdmin={isAdmin} activeTab={activeTab} onViewMovie={(id) => navigateTo('details', { mediaId: id })} />
         )}
-        {currentView === 'my-reviews' && !session.isGuest && (
+        {currentView === 'my-reviews' && session && !session.isGuest && (
           <Dashboard key="my-library" isAdmin={isAdmin} activeTab={activeTab} userIdFilter={session.user.id} onViewMovie={(id) => navigateTo('details', { mediaId: id })} onBack={goBack} />
         )}
-        {currentView === 'watchlist' && !session.isGuest && (
+        {currentView === 'watchlist' && session && !session.isGuest && (
           <Watchlist onViewMovie={(id) => navigateTo('details', { mediaId: id })} userId={session.user.id} onBack={goBack} />
         )}
         {currentView === 'details' && (
           <MovieDetailsPage mediaId={selectedMediaId} isAdmin={isAdmin} onBack={goBack} />
         )}
-        {currentView === 'create' && !session.isGuest && (
+        {currentView === 'create' && session && !session.isGuest && (
           <CreateReviewPage onReviewCreated={navigateToDashboard} />
         )}
-        {currentView === 'settings' && !session.isGuest && (
+        {currentView === 'settings' && session && !session.isGuest && (
           <ProfileSettings session={session} onBack={goBack} onProfileUpdated={fetchUserProfile} />
         )}
         {currentView === 'leaderboard' && (
@@ -355,9 +361,14 @@ export default function App() {
           <TimelineGame onBack={navigateToDashboard} />
         )}
         {currentView === 'wordle' && (
-          <Wordle user={!session?.isGuest ? session?.user : null} />
+          <Wordle user={session && !session.isGuest ? session.user : null} />
         )}
       </main>
+
+      {/* RENDERIZADO MODAL DE AUTH: Se superpone a la web conservando los estilos de terminal */}
+      {showAuthModal && (
+        <Auth onGuestLogin={handleGuestLogin} onClose={() => setShowAuthModal(false)} />
+      )}
     </div>
   );
 }
