@@ -328,7 +328,7 @@ export default function SopaLetras({ user }) {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-4 sm:p-6 bg-white rounded-3xl shadow-md border border-gray-100 my-6 max-h-[95vh] sm:max-h-none overflow-hidden sm:overflow-visible flex flex-col justify-between">
+    <div className="max-w-3xl mx-auto p-4 sm:p-6 bg-white rounded-3xl shadow-md border border-gray-100 my-6 overflow-y-auto flex flex-col justify-between">
       
       {/* PANTALLA SUPERPUESTA DE ÉXITO AL COMPLETAR */}
       {isGameFinished && (
@@ -386,26 +386,31 @@ export default function SopaLetras({ user }) {
         </p>
       </div>
 
-      {/* LISTA DE PALABRAS A ENCONTRAR */}
-      <div className="flex sm:flex-wrap gap-1.5 overflow-x-auto sm:overflow-x-visible pb-2 sm:pb-0 mb-3 whitespace-nowrap sm:whitespace-normal no-scrollbar shrink-0">
-        {wordsToFind.map(w => (
-          <span 
-            key={w} 
-            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold tracking-wide border inline-block transition-all ${
-              foundWords.includes(w) 
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-700 line-through opacity-50' 
-                : 'bg-gray-50 border-gray-100 text-gray-600'
-            }`}
-          >
-            {w}
-          </span>
-        ))}
+      {/* LISTA DE PALABRAS A ENCONTRAR - CORREGIDA SIN SCROLL HORIZONTAL */}
+      <div className="mb-4 shrink-0 bg-gray-50 p-3 rounded-2xl border border-gray-100">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Películas a buscar:</p>
+        <div className="grid grid-cols-2 xs:grid-cols-2 sm:grid-cols-3 gap-2 whitespace-normal">
+          {wordsToFind.map(w => (
+            <div 
+              key={w} 
+              className={`px-2.5 py-1.5 rounded-xl text-[11px] font-extrabold tracking-wide border flex items-center gap-1.5 transition-all truncate ${
+                foundWords.includes(w) 
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700 line-through opacity-50' 
+                  : 'bg-white border-gray-200 text-gray-700 shadow-sm'
+              }`}
+              title={w}
+            >
+              <span className={foundWords.includes(w) ? 'text-emerald-500' : 'text-gray-300'}>•</span>
+              <span className="truncate">{w}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* CUADRÍCULA RESPONSIVA COMPLETAMENTE ADAPTADA (SIN SCROLL) */}
+      {/* CUADRÍCULA RESPONSIVA MEJORADA (MÁS GRANDE EN MÓVILES) */}
       <div className="w-full flex justify-center items-center my-auto overflow-hidden grow">
         <div 
-          className={`grid gap-1 select-none touch-none bg-gray-100 p-2 rounded-2xl shadow-inner border border-gray-200/40 w-full aspect-square max-h-[50vh] max-w-[50vh] sm:max-h-[58vh] sm:max-w-[58vh] ${isGameFinished ? 'opacity-60 pointer-events-none' : ''}`}
+          className={`grid gap-0.5 sm:gap-1 select-none touch-none bg-gray-100 p-1.5 sm:p-2 rounded-2xl shadow-inner border border-gray-200/40 w-full aspect-square max-w-[100vw] sm:max-h-[58vh] sm:max-w-[58vh] ${isGameFinished ? 'opacity-60 pointer-events-none' : ''}`}
           style={{ gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))` }}
           onTouchMove={handleTouchMove}
         >
@@ -417,7 +422,7 @@ export default function SopaLetras({ user }) {
             return (
               <div
                 key={`${r}-${c}`}
-                className={`aspect-square flex items-center justify-center font-extrabold rounded-xl cursor-pointer text-[10px] xs:text-xs sm:text-sm md:text-base tracking-wide transition-all duration-150 select-none
+                className={`aspect-square flex items-center justify-center font-extrabold rounded-md sm:rounded-xl cursor-pointer text-[11px] xs:text-xs sm:text-sm md:text-base tracking-wide transition-all duration-150 select-none
                   ${isSelected 
                     ? 'bg-indigo-500 text-white shadow-md transform scale-105 z-10' 
                     : isFailed 
