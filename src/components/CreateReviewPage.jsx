@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import * as Sentry from "@sentry/react"; // 1. IMPORTAMOS SENTRY
 import MediaSearch from './MediaSearch';
 import ActorDetailsPage from './ActorDetailsPage';
 
@@ -102,6 +103,7 @@ export default function CreateReviewPage({ onReviewCreated }) {
       }
     } catch (e) { 
       console.error("❌ Error al obtener créditos o detalles principales:", e); 
+      Sentry.captureException(e); // Enviar error de detalles a Sentry
     }
 
     try {
@@ -110,6 +112,7 @@ export default function CreateReviewPage({ onReviewCreated }) {
       setWatchProviders(providersData.results?.ES?.flatrate || []);
     } catch (e) { 
       console.error("❌ Error al obtener proveedores de streaming:", e); 
+      Sentry.captureException(e); // Enviar error de proveedores a Sentry
     }
 
     try {
@@ -126,6 +129,7 @@ export default function CreateReviewPage({ onReviewCreated }) {
     } catch (e) { 
       console.error("❌ Error al obtener el trailer oficial:", e);
       setTrailerKey(''); 
+      Sentry.captureException(e); // Enviar error de trailer a Sentry
     }
 
     try {
@@ -135,6 +139,7 @@ export default function CreateReviewPage({ onReviewCreated }) {
     } catch (e) { 
       console.error("❌ Error al obtener recomendaciones:", e);
       setRecommendations([]); 
+      Sentry.captureException(e); // Enviar error de recomendaciones a Sentry
     }
 
     setDetailsLoading(false);
@@ -169,6 +174,7 @@ export default function CreateReviewPage({ onReviewCreated }) {
       setWatchlistId(null);
     } catch (err) {
       console.error("⚠️ Error silencioso al verificar la watchlist:", err);
+      Sentry.captureException(err); // Capturar fallo al verificar lista
     }
   };
 
@@ -202,6 +208,7 @@ export default function CreateReviewPage({ onReviewCreated }) {
       }
     } catch (error) {
       console.error("❌ Fallo crítico en handleToggleWatchlist:", error);
+      Sentry.captureException(error); // Notificar a Sentry el error de pendientes
       alert("Error al actualizar la lista de pendientes. Revisa la consola.");
     } finally {
       setWatchlistLoading(false);
@@ -241,7 +248,9 @@ export default function CreateReviewPage({ onReviewCreated }) {
       };
       
       if (!mediaPayload.api_id) {
-        console.error("❌ ERROR CRÍTICO FRONTEND: 'api_id' es null o undefined antes de enviar.");
+        const idError = new Error("ERROR CRÍTICO FRONTEND: 'api_id' es null o undefined antes de enviar.");
+        console.error("❌", idError.message);
+        Sentry.captureException(idError); // Forzar reporte inmediato a Sentry
         alert("El ID de la película no es válido. Comprueba la consola.");
         setLoading(false);
         return;
@@ -262,10 +271,9 @@ export default function CreateReviewPage({ onReviewCreated }) {
       }
 
       if (!media) {
-        console.error("❌ ERROR: Supabase no devolvió ningún registro de película tras el upsert.");
-        alert("Error inesperado: La base de datos no retornó el identificador de la película.");
-        setLoading(false);
-        return;
+        const noMediaError = new Error("Supabase no devolvió ningún registro de película tras el upsert.");
+        console.error("❌", noMediaError.message);
+        throw noMediaError;
       }
 
       // 4. Verificar existencia de reseña previa
@@ -314,6 +322,7 @@ export default function CreateReviewPage({ onReviewCreated }) {
       
     } catch (catchError) {
       console.error("💥 EXCEPCIÓN DETECTADA EN EL FLUJO:", catchError);
+      Sentry.captureException(catchError); // 2. CAPTURAMOS CUALQUIER EXCEPCIÓN DEL FLUJO DE RESEÑAS
       alert(`Error al registrar el contenido en la base de datos.\n\nMensaje técnico: ${catchError.message || catchError}`);
     } finally {
       setLoading(false);

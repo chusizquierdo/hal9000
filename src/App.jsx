@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from "./supabaseClient";
+import * as Sentry from "@sentry/react";
+
+
 import Dashboard from './components/Dashboard';
 import MovieDetailsPage from './components/MovieDetailsPage';
 import CreateReviewPage from './components/CreateReviewPage';
@@ -18,6 +21,29 @@ import PixelGame from './components/PixelGame';
 import TimelineGame from './components/TimelineGame';
 import Wordle from './components/Wordle';
 import SopaLetras from './components/SopaLetras';
+
+// INICIALIZACIÓN DE SENTRY EN EL ÁMBITO GLOBAL
+Sentry.init({
+  dsn: "https://c4511de854ac9238e7c5aa5b8336b7b1@o4511678809047040.ingest.de.sentry.io/4511678820778064",
+  dataCollection: {
+    // Para desactivar el envío de datos de usuario y cuerpos HTTP, descomenta las líneas de abajo:
+    // userInfo: false,
+    // httpBodies: []
+  },
+  integrations: [
+    Sentry.browserTracingIntegration(),
+    Sentry.replayIntegration()
+  ],
+  // Rastreo de rendimiento (1.0 captura el 100% de las interacciones)
+  tracesSampleRate: 1.0, 
+  tracePropagationTargets: ["localhost", /^https:\/\/yourserver\.io\/api/],
+  
+  // Session Replay (Grabación de sesiones)
+  replaysSessionSampleRate: 0.1, // Graba el 10% de las sesiones normales
+  replaysOnErrorSampleRate: 1.0,  // Graba el 100% de las sesiones cuando ocurre un error
+  
+  enableLogs: true
+});
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -39,6 +65,24 @@ export default function App() {
     if (params.mediaId) setSelectedMediaId(params.mediaId);
     setCurrentView(view);
   };
+
+  function ErrorButton() {
+  return (
+    <button
+      onClick={() => {
+        // Send a log before throwing the error
+        Sentry.logger.info('User triggered test error', {
+          action: 'test_error_button_click',
+        });
+        // Send a test metric before throwing the error
+        Sentry.metrics.count('test_counter', 1);
+        throw new Error('This is your first error!');
+      }}
+    >
+      Break the world
+    </button>
+  );
+}
 
   const goBack = () => {
     if (navigationStack.length > 0) {
