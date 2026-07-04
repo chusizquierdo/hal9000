@@ -2,14 +2,18 @@ import { useState, useEffect } from 'react';
 import { supabase } from "../supabaseClient";
 
 export default function UserLeaderboard({ onViewMovie }) {
-  // Pestaña activa: 'critics', 'quiz', 'pixel', 'timeline' o 'wordle'
+  // Pestaña activa: 'critics', 'quiz', 'pixel', 'timeline', 'wordle' o 'sopa'
   const [activeTab, setActiveTab] = useState('critics');
+  
+  // Sub-dificultad para la Sopa de Letras: 'easy', 'normal' o 'hard'
+  const [sopaDifficulty, setSopaDifficulty] = useState('normal');
   
   const [usersCritics, setUsersCritics] = useState([]);
   const [usersQuiz, setUsersQuiz] = useState([]);
   const [usersPixel, setUsersPixel] = useState([]); 
   const [usersTimeline, setUsersTimeline] = useState([]); 
   const [usersWordle, setUsersWordle] = useState([]); 
+  const [usersSopa, setUsersSopa] = useState([]); // Almacenará los datos crudos para la sopa
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -29,12 +33,12 @@ export default function UserLeaderboard({ onViewMovie }) {
     fetchLeaderboardData();
   }, []);
 
-  // Reiniciar la página y búsqueda al cambiar de pestaña activa
+  // Reiniciar la página y búsqueda al cambiar de pestaña activa o dificultad de sopa
   useEffect(() => {
     setCurrentPage(1);
     setSearchQuery('');
-    setExpandedUserId(null); // Resetea expansiones para evitar comportamientos extraños
-  }, [activeTab]);
+    setExpandedUserId(null); 
+  }, [activeTab, sopaDifficulty]);
 
   // Reiniciar a la página 1 cuando el usuario escribe en el buscador
   useEffect(() => {
@@ -54,6 +58,9 @@ export default function UserLeaderboard({ onViewMovie }) {
           pixel_score,
           timeline_score,
           wordle_score,
+          sopa_easy_time,
+          sopa_normal_time,
+          sopa_hard_time,
           reviews (count)
         `);
 
@@ -66,7 +73,10 @@ export default function UserLeaderboard({ onViewMovie }) {
         quizScore: user.quiz_score || 0, 
         pixelScore: user.pixel_score || 0,
         timelineScore: user.timeline_score || 0,
-        wordleScore: user.wordle_score || 0
+        wordleScore: user.wordle_score || 0,
+        sopaEasy: user.sopa_easy_time,   // Mantenemos null si no han jugado
+        sopaNormal: user.sopa_normal_time,
+        sopaHard: user.sopa_hard_time
       }));
 
       // 1. Ordenación para el Ranking de Críticos (por número de críticas)
@@ -88,6 +98,9 @@ export default function UserLeaderboard({ onViewMovie }) {
       // 5. Ordenación para el Ranking de Wordle (por puntuación de fotogramas)
       const sortedWordle = [...formattedUsers].sort((a, b) => b.wordleScore - a.wordleScore);
       setUsersWordle(sortedWordle);
+
+      // 6. Guardamos el dataset base para la Sopa de letras
+      setUsersSopa(formattedUsers);
 
     } catch (err) {
       console.error("Error al cargar los leaderboards:", err);
@@ -139,6 +152,14 @@ export default function UserLeaderboard({ onViewMovie }) {
     }
   };
 
+  // Formateador auxiliar de segundos a formato legible (MM:SS)
+  const formatSopaTime = (totalSeconds) => {
+    if (totalSeconds === null || totalSeconds === undefined) return '---';
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs} min`;
+  };
+
   const renderRankBadge = (globalIndex) => {
     switch (globalIndex) {
       case 0: return <span className="text-2xl sm:text-3xl drop-shadow-sm" title="Primer Puesto">🥇</span>;
@@ -169,20 +190,31 @@ export default function UserLeaderboard({ onViewMovie }) {
     );
   }
 
-  // 1. Selección dinámica del dataset activo
-  const currentDataset = 
-    activeTab === 'critics' ? usersCritics : 
-    activeTab === 'quiz' ? usersQuiz : 
-    activeTab === 'pixel' ? usersPixel : 
-    activeTab === 'timeline' ? usersTimeline : 
-    usersWordle;
+  // --- SELECCIÓN Y ORDENACIÓN DINÁMICA DEL DATASET ACTIVO ---
+  let currentDataset = [];
 
-  // 2. Aplicamos el filtro del buscador guardando la referencia a su posición original (para las medallas)
+  if (activeTab === 'critics') currentDataset = usersCritics;
+  else if (activeTab === 'quiz') currentDataset = usersQuiz;
+  else if (activeTab === 'pixel') currentDataset = usersPixel;
+  else if (activeTab === 'timeline') currentDataset = usersTimeline;
+  else if (activeTab === 'wordle') currentDataset = usersWordle;
+  else if (activeTab === 'sopa') {
+    // Para la sopa filtramos los que tienen tiempo registrado y los ordenamos de MENOR a MAYOR tiempo
+    const propKey = sopaDifficulty === 'easy' ? 'sopaEasy' : sopaDifficulty === 'normal' ? 'sopaNormal' : 'sopaHard';
+    
+    const conTiempo = usersSopa.filter(u => u[propKey] !== null && u[propKey] !== undefined);
+    const sinTiempo = usersSopa.filter(u => u[propKey] === null || u[propKey] === undefined);
+
+    conTiempo.sort((a, b) => a[propKey] - b[propKey]);
+    currentDataset = [...conTiempo, ...sinTiempo];
+  }
+
+  // Aplicamos el filtro del buscador guardando la referencia a su posición original
   const filteredDatasetWithIndex = currentDataset
     .map((user, originalIndex) => ({ ...user, originalIndex }))
     .filter(user => user.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
-  // 3. Cálculos finales de segmentación/paginación
+  // Cálculos finales de segmentación/paginación
   const totalPages = Math.ceil(filteredDatasetWithIndex.length / ITEMS_PER_PAGE) || 1;
   const indexOfLastItem = currentPage * ITEMS_PER_PAGE;
   const indexOfFirstItem = indexOfLastItem - ITEMS_PER_PAGE;
@@ -192,7 +224,7 @@ export default function UserLeaderboard({ onViewMovie }) {
     <div className="max-w-5xl mx-auto p-4 sm:p-8 bg-white rounded-3xl shadow-sm border border-gray-100 my-6 mx-4 sm:mx-auto">
       
       {/* Cabecera del Componente */}
-      <div className="mb-6 pb-2 border-b border-gray-100 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="mb-6 pb-2 border-b border-gray-100 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
             📊 Panel Global de Rankings
@@ -206,19 +238,19 @@ export default function UserLeaderboard({ onViewMovie }) {
               ? "Clasificación de agudeza visual. ¿Quién es el mejor reconociendo rostros en Pixelado?"
               : activeTab === 'timeline'
               ? "Líneas de tiempo maestras. Historial de ordenación cronológica perfecta en el cine global."
-              : "Detectives del fotograma. Clasificación oficial de los que necesitan menos pistas en el Wordle de Cine."
+              : activeTab === 'wordle'
+              ? "Detectives del fotograma. Clasificación oficial de los que necesitan menos pistas en el Wordle de Cine."
+              : "Récords de velocidad. Clasificación oficial de los usuarios más rápidos resolviendo las matrices de películas."
             }
           </p>
         </div>
 
         {/* Selector de Pestañas Estilizado */}
-        <div className="flex flex-wrap bg-gray-100 p-1 rounded-2xl self-start md:self-center border border-gray-200/50 gap-y-1">
+        <div className="flex flex-wrap bg-gray-100 p-1 rounded-2xl self-start lg:self-center border border-gray-200/50 gap-y-1">
           <button
             onClick={() => setActiveTab('critics')}
             className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-              activeTab === 'critics' 
-                ? 'bg-white text-gray-900 shadow-sm' 
-                : 'text-gray-500 hover:text-gray-800'
+              activeTab === 'critics' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'
             }`}
           >
             🔥 Críticos
@@ -226,19 +258,15 @@ export default function UserLeaderboard({ onViewMovie }) {
           <button
             onClick={() => setActiveTab('quiz')}
             className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-              activeTab === 'quiz' 
-                ? 'bg-white text-gray-900 shadow-sm' 
-                : 'text-gray-500 hover:text-gray-800'
+              activeTab === 'quiz' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'
             }`}
           >
-            🏆 Trivial Clásico
+            🏆 Trivial
           </button>
           <button
             onClick={() => setActiveTab('pixel')}
             className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-              activeTab === 'pixel' 
-                ? 'bg-white text-gray-900 shadow-sm' 
-                : 'text-gray-500 hover:text-gray-800'
+              activeTab === 'pixel' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'
             }`}
           >
             🎬 Pixelado
@@ -246,9 +274,7 @@ export default function UserLeaderboard({ onViewMovie }) {
           <button
             onClick={() => setActiveTab('timeline')}
             className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-              activeTab === 'timeline' 
-                ? 'bg-white text-gray-900 shadow-sm' 
-                : 'text-gray-500 hover:text-gray-800'
+              activeTab === 'timeline' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'
             }`}
           >
             ⏱️ Cronología
@@ -256,15 +282,54 @@ export default function UserLeaderboard({ onViewMovie }) {
           <button
             onClick={() => setActiveTab('wordle')}
             className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-              activeTab === 'wordle' 
-                ? 'bg-white text-gray-900 shadow-sm' 
-                : 'text-gray-500 hover:text-gray-800'
+              activeTab === 'wordle' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'
             }`}
           >
             🧩 Wordle
           </button>
+          <button
+            onClick={() => setActiveTab('sopa')}
+            className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+              activeTab === 'sopa' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            🔤 Sopa Letras
+          </button>
         </div>
       </div>
+
+      {/* SUB-MENU DE DIFICULTADES EXCLUSIVO PARA SOPA DE LETRAS */}
+      {activeTab === 'sopa' && (
+        <div className="mb-5 p-2 bg-indigo-50/60 border border-indigo-100 rounded-2xl flex items-center justify-between flex-wrap gap-2">
+          <span className="text-xs font-extrabold text-indigo-950 ml-2 uppercase tracking-wide">⚙️ Dificultad del ranking:</span>
+          <div className="flex gap-1">
+            <button
+              onClick={() => setSopaDifficulty('easy')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                sopaDifficulty === 'easy' ? 'bg-indigo-600 text-white shadow-sm' : 'text-indigo-600 hover:bg-indigo-100/50'
+              }`}
+            >
+              🟢 Fácil
+            </button>
+            <button
+              onClick={() => setSopaDifficulty('normal')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                sopaDifficulty === 'normal' ? 'bg-indigo-600 text-white shadow-sm' : 'text-indigo-600 hover:bg-indigo-100/50'
+              }`}
+            >
+              🔵 Normal
+            </button>
+            <button
+              onClick={() => setSopaDifficulty('hard')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                sopaDifficulty === 'hard' ? 'bg-indigo-600 text-white shadow-sm' : 'text-indigo-600 hover:bg-indigo-100/50'
+              }`}
+            >
+              🟣 Difícil
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* --- INPUT DEL BUSCADOR --- */}
       <div className="mb-6 relative">
@@ -285,7 +350,7 @@ export default function UserLeaderboard({ onViewMovie }) {
         )}
       </div>
 
-      {/* Renderizado Dinámico del Listado (Paginado y Filtrado) */}
+      {/* Renderizado Dinámico del Listado */}
       <div className="flex flex-col gap-4">
         {displayedUsers.length === 0 ? (
           <p className="text-gray-400 text-sm italic py-6 text-center">No se encontraron usuarios coincidentes.</p>
@@ -294,12 +359,16 @@ export default function UserLeaderboard({ onViewMovie }) {
             const globalIndex = user.originalIndex;
             const isTop3 = globalIndex < 3;
             const isExpanded = activeTab === 'critics' && expandedUserId === user.id;
+
+            // Condición para ocultar/mostrar medallas si no hay tiempo en Sopa de Letras
+            const propKey = sopaDifficulty === 'easy' ? 'sopaEasy' : sopaDifficulty === 'normal' ? 'sopaNormal' : 'sopaHard';
+            const hasNoTimeInSopa = activeTab === 'sopa' && (user[propKey] === null || user[propKey] === undefined);
             
-            const bgStyles = globalIndex === 0 
+            const bgStyles = !hasNoTimeInSopa && globalIndex === 0 
               ? "from-amber-50/50 to-transparent border-amber-100/80 shadow-amber-50/30" 
-              : globalIndex === 1 
+              : !hasNoTimeInSopa && globalIndex === 1 
               ? "from-slate-50/70 to-transparent border-slate-200/70" 
-              : globalIndex === 2 
+              : !hasNoTimeInSopa && globalIndex === 2 
               ? "from-orange-50/40 to-transparent border-orange-100/60" 
               : "bg-white border-gray-100";
 
@@ -318,136 +387,63 @@ export default function UserLeaderboard({ onViewMovie }) {
                 >
                   <div className="flex items-center gap-4 min-w-0">
                     <div className="w-10 flex justify-center items-center shrink-0">
-                      {renderRankBadge(globalIndex)}
+                      {hasNoTimeInSopa ? (
+                        <span className="w-7 h-7 bg-gray-50 text-gray-300 rounded-full flex items-center justify-center text-xs font-bold border border-gray-100">-</span>
+                      ) : (
+                        renderRankBadge(globalIndex)
+                      )}
                     </div>
                     <div className="flex items-center gap-3 min-w-0">
                       <span className={`text-sm sm:text-base tracking-tight truncate ${
-                        isTop3 ? 'font-black text-gray-900' : 'font-bold text-gray-800'
+                        isTop3 && !hasNoTimeInSopa ? 'font-black text-gray-900' : 'font-bold text-gray-800'
                       }`}>
                         {user.name}
                       </span>
-                      {activeTab === 'critics' && (
-                        <span className={`text-xs transition-transform duration-300 ${
-                          isExpanded ? 'rotate-180 text-blue-500 font-bold' : 'text-gray-400'
-                        }`}>
-                          ▼
-                        </span>
-                      )}
                     </div>
                   </div>
 
                   <div className="text-right shrink-0 ml-2">
                     {activeTab === 'critics' && (
-                      <span className={`text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm ${
-                        globalIndex === 0 
-                          ? 'bg-amber-100 text-amber-900' 
-                          : isTop3 
-                          ? 'bg-gray-100 text-gray-800' 
-                          : 'bg-gray-50 text-gray-500'
-                      }`}>
+                      <span className="text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm bg-gray-50 text-gray-500">
                         {user.reviewsCount} {user.reviewsCount === 1 ? 'reseña' : 'reseñas'}
                       </span>
                     )}
                     
                     {activeTab === 'quiz' && (
-                      <span className={`text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm ${
-                        globalIndex === 0 
-                          ? 'bg-amber-500 text-white' 
-                          : globalIndex === 1 
-                          ? 'bg-slate-400 text-white' 
-                          : globalIndex === 2 
-                          ? 'bg-amber-600 text-white' 
-                          : 'bg-red-50 text-red-600 border border-red-100'
-                      }`}>
+                      <span className="text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm bg-red-50 text-red-600 border border-red-100">
                         {user.quizScore} pts
                       </span>
                     )}
 
                     {activeTab === 'pixel' && (
-                      <span className={`text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm ${
-                        globalIndex === 0 
-                          ? 'bg-indigo-500 text-white' 
-                          : globalIndex === 1 
-                          ? 'bg-indigo-400 text-white' 
-                          : globalIndex === 2 
-                          ? 'bg-indigo-600 text-white' 
-                          : 'bg-indigo-50 text-indigo-600 border border-indigo-100'
-                      }`}>
+                      <span className="text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm bg-indigo-50 text-indigo-600 border border-indigo-100">
                         {user.pixelScore} pts
                       </span>
                     )}
 
                     {activeTab === 'timeline' && (
-                      <span className={`text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm ${
-                        globalIndex === 0 
-                          ? 'bg-emerald-500 text-white' 
-                          : globalIndex === 1 
-                          ? 'bg-emerald-400 text-white' 
-                          : globalIndex === 2 
-                          ? 'bg-emerald-600 text-white' 
-                          : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
-                      }`}>
+                      <span className="text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm bg-emerald-50 text-emerald-600 border border-emerald-100">
                         {user.timelineScore} pts
                       </span>
                     )}
 
                     {activeTab === 'wordle' && (
-                      <span className={`text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm ${
-                        globalIndex === 0 
-                          ? 'bg-yellow-500 text-gray-950' 
-                          : globalIndex === 1 
-                          ? 'bg-yellow-400 text-gray-900' 
-                          : globalIndex === 2 
-                          ? 'bg-yellow-600 text-white' 
-                          : 'bg-yellow-50 text-yellow-700 border border-yellow-100'
-                      }`}>
+                      <span className="text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm bg-yellow-50 text-yellow-700 border border-yellow-100">
                         {user.wordleScore} pts
+                      </span>
+                    )}
+
+                    {activeTab === 'sopa' && (
+                      <span className={`text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm border ${
+                        hasNoTimeInSopa 
+                          ? 'bg-gray-50 border-gray-200 text-gray-400 italic' 
+                          : 'bg-indigo-50 border-indigo-100 text-indigo-700'
+                      }`}>
+                        ⏱️ {hasNoTimeInSopa ? 'Sin récord' : formatSopaTime(user[propKey])}
                       </span>
                     )}
                   </div>
                 </div>
-
-                {activeTab === 'critics' && isExpanded && (
-                  <div className="bg-slate-50/60 border-t border-gray-100 p-4 sm:p-6 transition-all">
-                    {loadingReviews && !userReviews[user.id] ? (
-                      <p className="text-sm text-gray-400 italic text-center py-4 font-medium">⏳ Recuperando críticas de la base de datos relacional...</p>
-                    ) : !userReviews[user.id] || userReviews[user.id].length === 0 ? (
-                      <p className="text-sm text-gray-400 italic text-center py-4 font-medium">Este usuario aún no ha guardado ningún comentario.</p>
-                    ) : (
-                      <div className="overflow-x-auto rounded-2xl border border-gray-200/80 bg-white shadow-sm">
-                        <table className="w-full text-left border-collapse table-auto text-sm sm:text-base">
-                          <thead>
-                            <tr className="bg-gray-50 border-b border-gray-200 text-xs font-bold uppercase tracking-wider text-gray-500">
-                              <th className="p-4 sm:p-5 w-1/4">Título</th>
-                              <th className="p-4 sm:p-5 w-2/3">Comentario de la Reseña</th>
-                              <th className="p-4 sm:p-5 text-center w-24">Nota</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100 text-gray-700">
-                            {userReviews[user.id].map((review) => (
-                              <tr key={review.id} className="hover:bg-slate-50/40 transition-colors align-top">
-                                <td 
-                                  className="p-4 sm:p-5 font-bold text-gray-900 min-w-[160px] leading-snug cursor-pointer hover:text-blue-600 hover:underline transition-colors"
-                                  onClick={() => review.media_items?.id && onViewMovie(review.media_items.id)}
-                                  title="Click para ver detalles de este contenido"
-                                >
-                                  {review.media_items?.title || "Contenido Eliminado"}
-                                </td>
-                                <td className="p-4 sm:p-5 text-gray-600 font-normal whitespace-pre-line leading-relaxed italic">
-                                  "{review.comment || 'Sin comentario escrito.'}"
-                                </td>
-                                <td className="p-4 sm:p-5 text-center font-black text-gray-900 whitespace-nowrap">
-                                  <span className="text-yellow-500 mr-1 text-base">★</span>
-                                  {review.rating ? Number(review.rating).toFixed(1) : '0.0'}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             );
           })

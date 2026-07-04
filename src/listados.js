@@ -152,3 +152,51 @@ export const HOLLYWOOD_ACTORS = [
   "Austin Butler", "Glen Powell", "Shailene Woodley", "Sydney Sweeney",
   "Jacob Elordi", "Paul Mescal", "Jenna Ortega", "Rebecca Ferguson"
 ];
+
+
+
+export const SOPA_MOVIES_POOL = [
+  // --- UNIVERSO MARVEL ---
+  "Vengadores", "Deadpool", "Eternals", "Thor", "Antman", "Venom", 
+  "Morbius", "Blade", "Logan", "Spiderman", "Ironman", "Hulk", "XMen",
+
+  // --- UNIVERSO DC ---
+  "Joker", "Batman", "Superman", "Aquaman", "Flash", "Watchmen", 
+  "Catwoman", "Constantine", "Shazam", "Supergirl",
+
+  // --- DISNEY & PIXAR ---
+  "Aladdín", "Tarzán", "Mulan", "Hércules", "Anastasia", "Ratatouille", 
+  "Brave", "Zootrópolis", "Vaiana", "Encanto", "Luca", "Onward", 
+  "Coco", "Up", "Soul", "Cars", "Frozen", "Enredados", 
+  "Dumbo", "Bambi", "Pinocho", "Fantasía", "Maléfica", "Cruella",
+  "WallE", "Aventureros", "Monstruos", "Bichos", "Nemo",
+
+  // --- SAGA STAR WARS / SCI-FI ---
+  "Andor", "Ahsoka", "Kenobi", "Alien", "Predator", "Terminator", 
+  "Matrix", "Avatar", "Dune", "Tenet", "Origen", "Interstellar", 
+  "Gravity", "Oblivion", "Prometheus", "Looper", "Tron", "Scanners",
+
+  // --- PELÍCULAS POPULARES ---
+  "Goonies", "Infiltrados", "Centauros", "Benhur", "Gladiador", 
+  "Cazafantasmas", "Transformers", "Zoolander",
+
+  // --- TERROR Y THRILLER ---
+  "Psicosis", "Vértigo", "Suspiria", "Halloween", "Gremlins", "Beetlejuice", 
+  "Seven", "Scream", "Saw", "Hellboy", "Zodiac", "Cloverfield", 
+  "Coraline", "Prisioneros", "Perdida", "Sicario", "Hereditary", "Parásitos", 
+  "Whiplash", "Skyfall", "Smile", "Nope", "M3gan", "Aracnofobia", 
+  "Cujo", "Drácula", "Frankenstein", "Misery", "Poltergeist", "Tesis", 
+  "Rec", "Airbag", "Mamá", "Múltiple", "Déjame", "Midsommar",
+
+  // --- DRAMAS, ACCIÓN Y CLÁSICOS GRANDIOSOS ---
+  "Metrópolis", "Nosferatu", "Casablanca", "Espartaco", "Cleopatra", "Oliver", 
+  "Amarcord", "Chinatown", "Tiburón", "Rocky", "Network", "Amadeus", 
+  "Platoon", "RoboCop", "Akira", "Scarface", "Rebecca", 
+  "Gilda", "Laura", "Marnie", "Topaz", "Heat", "Titanic", 
+  "Magnolia", "Jumanji", "Ghost", "Fargo", "Speed", "Twister", 
+  "Hook", "Matilda", "Desperado", "Braveheart", "Trainspotting", 
+  "Memento", "Shrek", "Troya", "Hancock", "Superbad", "Ray", 
+  "Crash", "Múnich", "Drive", "Intocable", "Dunkerque", 
+  "Mank", "Oppenheimer", "Barbie", "Uncharted", "Elvis", "Whale", 
+  "Volver", "Klaus", "Roma", "Amas", "Plácido", "Amélie", "Glory"
+];

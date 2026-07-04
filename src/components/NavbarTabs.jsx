@@ -11,7 +11,7 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
     { id: 'leaderboard', label: 'Ranking de Críticos' },
     { id: 'upcoming', label: 'Próximos Estrenos' },
     { id: 'trailers', label: 'Próximos Trailers' },
-    { id: 'suggestions', label: 'Sugerencias' },
+    { id: 'suggestions', label: '¿Qué ver?' },
     { id: 'news', label: 'Noticias' },
   ];
 
@@ -19,7 +19,8 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
     { id: 'quiz', label: 'Quiz' },
     { id: 'pixel', label: 'Pixelado' },
     { id: 'timeline', label: 'Cronología' },
-    { id: 'wordle', label: 'Wordle' }
+    { id: 'wordle', label: 'Wordle' },
+    { id: 'soup', label: 'Sopa de Letras' }
   ];
 
   let currentLabel = 'Biblioteca';
@@ -29,7 +30,7 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
   if (foundGame) currentLabel = `Juegos: ${foundGame.label}`;
   if (activeTab === 'contact') currentLabel = 'Contactar Admin';
 
-  const isGameActive = activeTab === 'quiz' || activeTab === 'pixel' || activeTab === 'timeline' || activeTab === 'wordle';
+  const isGameActive = activeTab === 'quiz' || activeTab === 'pixel' || activeTab === 'timeline' || activeTab === 'wordle' || activeTab === 'soup';
 
   return (
     <div className="max-w-7xl mx-auto px-4 mt-4 relative">
@@ -151,7 +152,7 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
           </button>
 
           {isDesktopGamesOpen && (
-            <div className="absolute left-0 mt-2 w-44 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 z-50 animate-fade-in">
+            <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 z-50 animate-fade-in">
               {gameTabs.map((subTab) => (
                 <button
                   key={subTab.id}
@@ -160,7 +161,7 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
                     activeTab === subTab.id ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
                 >
-                  {subTab.id === 'quiz' ? '🏆 Trivial Quiz' : subTab.id === 'pixel' ? '🎬 Pixelado' : subTab.id === 'timeline' ? '⏱️ Cronología' : '🧩 Wordle'}
+                  {subTab.id === 'quiz' ? '🏆 Trivial Quiz' : subTab.id === 'pixel' ? '🎬 Pixelado' : subTab.id === 'timeline' ? '⏱️ Cronología' : subTab.id === 'wordle' ? '🧩 Wordle' : '🔤 Sopa de Letras'}
                 </button>
               ))}
             </div>

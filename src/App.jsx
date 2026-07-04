@@ -17,6 +17,7 @@ import QuizGame from './components/QuizGame';
 import PixelGame from './components/PixelGame';
 import TimelineGame from './components/TimelineGame';
 import Wordle from './components/Wordle';
+import SopaLetras from './components/SopaLetras';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -211,6 +212,8 @@ export default function App() {
       setCurrentView('timeline');
     } else if (tabName === 'wordle') { 
       setCurrentView('wordle');
+    } else if (tabName === 'soup') {
+      setCurrentView('soup');
     } else {
       setCurrentView('dashboard');
     }
@@ -362,6 +365,9 @@ export default function App() {
         )}
         {currentView === 'wordle' && (
           <Wordle user={session && !session.isGuest ? session.user : null} />
+        )}
+        {currentView === 'soup' && (
+          <SopaLetras user={session && !session.isGuest ? session.user : null} />
         )}
       </main>
 

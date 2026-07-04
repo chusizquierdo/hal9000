@@ -85,11 +85,11 @@ export default function CreateReviewPage({ onReviewCreated }) {
     const apiKey = '8005d659cd2756fbe0a09eaba113b878';
 
     try {
-      const res = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES`);
+      const res = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}?api_key=${apiKey}&language=es-ES`);
       const tmdbData = await res.json();
       setMovieData(tmdbData);
 
-      const creditsRes = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/credits?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES`);
+      const creditsRes = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/credits?api_key=${apiKey}&language=es-ES`);
       const creditsData = await creditsRes.json();
       setCast(creditsData.cast?.slice(0, 12) || []);
 
@@ -100,119 +100,224 @@ export default function CreateReviewPage({ onReviewCreated }) {
         const tvCreators = tmdbData.created_by?.map(c => c.name).join(', ');
         setDirector(tvCreators || 'No disponible');
       }
-    } catch (e) { console.error("Error en créditos o detalles", e); }
+    } catch (e) { 
+      console.error("❌ Error al obtener créditos o detalles principales:", e); 
+    }
 
     try {
-      const providersRes = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/watch/providers?api_key=apiKey`);
+      const providersRes = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/watch/providers?api_key=${apiKey}`);
       const providersData = await providersRes.json();
       setWatchProviders(providersData.results?.ES?.flatrate || []);
-    } catch (e) { console.error("Error en proveedores", e); }
+    } catch (e) { 
+      console.error("❌ Error al obtener proveedores de streaming:", e); 
+    }
 
     try {
-      let videoRes = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/videos?api_key=apiKey&language=es-ES`);
+      let videoRes = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/videos?api_key=${apiKey}&language=es-ES`);
       let videoData = await videoRes.json();
       let trailer = videoData.results?.find(v => v.type === 'Trailer' && v.site === 'YouTube');
 
       if (!trailer) {
-        videoRes = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/videos?api_key=apiKey`);
+        videoRes = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/videos?api_key=${apiKey}`);
         videoData = await videoRes.json();
         trailer = videoData.results?.find(v => v.type === 'Trailer' && v.site === 'YouTube');
       }
       setTrailerKey(trailer ? trailer.key : '');
-    } catch (e) { setTrailerKey(''); }
+    } catch (e) { 
+      console.error("❌ Error al obtener el trailer oficial:", e);
+      setTrailerKey(''); 
+    }
 
     try {
-      const recRes = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/recommendations?api_key=apiKey&language=es-ES`);
+      const recRes = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/recommendations?api_key=${apiKey}&language=es-ES`);
       const recData = await recRes.json();
       setRecommendations(recData.results?.slice(0, 8) || []);
-    } catch (e) { setRecommendations([]); }
+    } catch (e) { 
+      console.error("❌ Error al obtener recomendaciones:", e);
+      setRecommendations([]); 
+    }
 
     setDetailsLoading(false);
   };
 
   const checkWatchlist = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    const { data: existingItem } = await supabase
-      .from('media_items')
-      .select('id')
-      .eq('api_id', String(selectedMedia.id))
-      .maybeSingle();
-
-    if (existingItem) {
-      const { data } = await supabase
-        .from('watchlist')
+      const { data: existingItem } = await supabase
+        .from('media_items')
         .select('id')
-        .eq('user_id', user.id)
-        .eq('media_item_id', existingItem.id)
+        .eq('api_id', String(selectedMedia.id))
         .maybeSingle();
-      
-      if (data) { 
-        setIsInWatchlist(true); 
-        setWatchlistId(data.id); 
-        return;
+
+      if (existingItem) {
+        const { data } = await supabase
+          .from('watchlist')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('media_item_id', existingItem.id)
+          .maybeSingle();
+        
+        if (data) { 
+          setIsInWatchlist(true); 
+          setWatchlistId(data.id); 
+          return;
+        }
       }
+      setIsInWatchlist(false);
+      setWatchlistId(null);
+    } catch (err) {
+      console.error("⚠️ Error silencioso al verificar la watchlist:", err);
     }
-    setIsInWatchlist(false);
-    setWatchlistId(null);
   };
 
   const handleToggleWatchlist = async () => {
     setWatchlistLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setWatchlistLoading(false); return; }
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setWatchlistLoading(false); return; }
 
-    if (isInWatchlist) {
-      await supabase.from('watchlist').delete().eq('id', watchlistId);
-      setIsInWatchlist(false);
-      setWatchlistId(null);
-    } else {
-      const { data: m } = await supabase.from('media_items').upsert({ 
-        api_id: String(selectedMedia.id), 
-        title: selectedMedia.title || selectedMedia.name, 
-        media_type: selectedMedia.media_type || 'movie',
-        poster_url: selectedMedia.poster_path ? `https://image.tmdb.org/t/p/w500${selectedMedia.poster_path}` : null
-      }, { onConflict: 'api_id' }).select('id').single();
-      
-      const { data } = await supabase.from('watchlist').insert({ user_id: user.id, media_item_id: m.id }).select('id').single();
-      setIsInWatchlist(true); setWatchlistId(data.id);
+      if (isInWatchlist) {
+        await supabase.from('watchlist').delete().eq('id', watchlistId);
+        setIsInWatchlist(false);
+        setWatchlistId(null);
+      } else {
+        const payloadMedia = { 
+          api_id: String(selectedMedia.id), 
+          title: selectedMedia.title || selectedMedia.name, 
+          media_type: selectedMedia.media_type || 'movie',
+          poster_url: selectedMedia.poster_path ? `https://image.tmdb.org/t/p/w500${selectedMedia.poster_path}` : null
+        };
+        
+        const { data: m, error: upsertErr } = await supabase.from('media_items').upsert(payloadMedia, { onConflict: 'api_id' }).select('id').single();
+        
+        if (upsertErr) throw upsertErr;
+
+        const { data, error: insertErr } = await supabase.from('watchlist').insert({ user_id: user.id, media_item_id: m.id }).select('id').single();
+        if (insertErr) throw insertErr;
+
+        setIsInWatchlist(true); 
+        setWatchlistId(data.id);
+      }
+    } catch (error) {
+      console.error("❌ Fallo crítico en handleToggleWatchlist:", error);
+      alert("Error al actualizar la lista de pendientes. Revisa la consola.");
+    } finally {
+      setWatchlistLoading(false);
     }
-    setWatchlistLoading(false);
   };
 
+  // --- FLUJO DE ENVÍO CON MÁXIMO DIAGNÓSTICO ---
   const handleSubmitReview = async (e) => {
     e.preventDefault();
     if (!selectedMedia) return;
     setLoading(true);
     
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); return alert("Debes iniciar sesión."); }
-    
-    const { data: media, error: mediaError } = await supabase.from('media_items').upsert({ 
-        api_id: String(selectedMedia.id), 
-        title: selectedMedia.title || selectedMedia.name, 
-        media_type: selectedMedia.media_type || 'movie',
-        poster_url: selectedMedia.poster_path ? `https://image.tmdb.org/t/p/w500${selectedMedia.poster_path}` : null
-    }, { onConflict: 'api_id' }).select('id').single();
-    
-    if (mediaError || !media) { setLoading(false); return alert("Error al registrar el contenido en la base de datos."); }
-    
-    const { data: existing } = await supabase.from('reviews').select('id').eq('user_id', user.id).eq('media_id', media.id).maybeSingle();
-    
-    if (existing) {
-        if (window.confirm("¿Sustituir tu reseña anterior existente para este título?")) {
-          await supabase.from('reviews').update({ comment, rating: parseFloat(rating) }).eq('id', existing.id);
-        } else { 
-          setLoading(false); 
-          return; 
-        }
-    } else {
-        await supabase.from('reviews').insert({ user_id: user.id, media_id: media.id, comment, rating: parseFloat(rating) });
+    try {
+      // 1. Verificar sesión del usuario
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) {
+        console.error("❌ Error de Supabase Auth al obtener el usuario:", userError);
+        throw userError;
+      }
+      if (!user) { 
+        setLoading(false); 
+        return alert("Debes iniciar sesión."); 
+      }
+
+      // 2. Mapear y sanear el objeto de la película
+      const apiIdString = selectedMedia.id ? String(selectedMedia.id) : null;
+      const finalTitle = selectedMedia.title || selectedMedia.name || movieData?.title || movieData?.name || "Título Desconocido";
+      const finalMediaType = selectedMedia.media_type || movieData?.media_type || 'movie';
+      const posterPath = selectedMedia.poster_path || movieData?.poster_path;
+      const finalPosterUrl = posterPath ? `https://image.tmdb.org/t/p/w500${posterPath}` : null;
+
+      const mediaPayload = { 
+          api_id: apiIdString, 
+          title: finalTitle, 
+          media_type: finalMediaType,
+          poster_url: finalPosterUrl
+      };
+      
+      if (!mediaPayload.api_id) {
+        console.error("❌ ERROR CRÍTICO FRONTEND: 'api_id' es null o undefined antes de enviar.");
+        alert("El ID de la película no es válido. Comprueba la consola.");
+        setLoading(false);
+        return;
+      }
+
+      // 3. Ejecutar inserción/actualización de la película
+      const { data: media, error: mediaError } = await supabase
+        .from('media_items')
+        .upsert(mediaPayload, { onConflict: 'api_id' })
+        .select('id')
+        .maybeSingle();
+
+      if (mediaError) {
+        console.error("❌ ERROR RETORNADO POR SUPABASE EN 'media_items':");
+        console.dir(mediaError);
+        console.error(`Detalles: ${mediaError.details} | Pista: ${mediaError.hint} | Mensaje: ${mediaError.message}`);
+        throw mediaError;
+      }
+
+      if (!media) {
+        console.error("❌ ERROR: Supabase no devolvió ningún registro de película tras el upsert.");
+        alert("Error inesperado: La base de datos no retornó el identificador de la película.");
+        setLoading(false);
+        return;
+      }
+
+      // 4. Verificar existencia de reseña previa
+      const { data: existing, error: searchError } = await supabase
+        .from('reviews')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('media_id', media.id)
+        .maybeSingle();
+
+      if (searchError) {
+        console.error("❌ Error al consultar reseñas preexistentes:", searchError);
+        throw searchError;
+      }
+
+      const parsedRating = parseFloat(rating);
+
+      // 5. Insertar o actualizar reseña final
+      if (existing) {
+          if (window.confirm("¿Sustituir tu reseña anterior existente para este título?")) {
+            const { error: updateError } = await supabase
+              .from('reviews')
+              .update({ comment, rating: parsedRating })
+              .eq('id', existing.id);
+            
+            if (updateError) {
+              console.error("❌ Error al actualizar la reseña existente:", updateError);
+              throw updateError;
+            }
+          } else { 
+            setLoading(false); 
+            return; 
+          }
+      } else {
+          const { error: insertError } = await supabase
+            .from('reviews')
+            .insert({ user_id: user.id, media_id: media.id, comment, rating: parsedRating });
+          
+          if (insertError) {
+            console.error("❌ Error al insertar la nueva reseña:", insertError);
+            throw insertError;
+          }
+      }
+      
+      onReviewCreated();
+      
+    } catch (catchError) {
+      console.error("💥 EXCEPCIÓN DETECTADA EN EL FLUJO:", catchError);
+      alert(`Error al registrar el contenido en la base de datos.\n\nMensaje técnico: ${catchError.message || catchError}`);
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
-    onReviewCreated();
   };
 
   // --- Vista de Ficha de Actor ---
@@ -265,7 +370,6 @@ export default function CreateReviewPage({ onReviewCreated }) {
       <button onClick={() => setSelectedMedia(null)} className="text-blue-600 mb-6 font-bold hover:underline inline-flex items-center gap-1">← Cambiar título</button>
       
       <div className="flex gap-6 md:gap-8 flex-col md:flex-row">
-        {/* CORRECCIÓN: Contenedor adaptativo para que la imagen no rompa en pantallas muy pequeñas */}
         {movieData.poster_path ? (
           <img 
             src={`https://image.tmdb.org/t/p/w300${movieData.poster_path}`} 
@@ -476,7 +580,6 @@ export default function CreateReviewPage({ onReviewCreated }) {
                 <button type="button" onClick={() => applyFormat('spoiler')} className="px-3 py-1 bg-gray-100 rounded text-xs hover:bg-gray-200">Spoiler</button>
             </div>
             
-            {/* CORRECCIÓN: Ajuste de min-h-[160px], rows y font-size para visibilidad de placeholder completa y deshabilitar auto-zoom en iOS */}
             <textarea 
               id="review-textarea" 
               className="w-full min-h-[160px] sm:min-h-[180px] p-4 border border-gray-200 rounded-xl resize-none outline-none focus:border-blue-500 bg-white text-base sm:text-sm leading-relaxed" 
@@ -489,7 +592,6 @@ export default function CreateReviewPage({ onReviewCreated }) {
             
             <div>
               <label className="font-bold text-sm block mb-2 text-gray-600">Tu puntuación: <span className="text-blue-600 font-black">{rating.toFixed(1)} / 10</span></label>
-              {/* CORRECCIÓN: Ajuste de tamaño y gaps para impedir saltos de línea molestos en pantallas de 320px */}
               <div className="flex flex-wrap gap-0.5 sm:gap-1 text-xl sm:text-2xl select-none">
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((star) => (
                   <div key={star} className="relative flex">
