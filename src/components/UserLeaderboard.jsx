@@ -3,18 +3,20 @@ import { supabase } from "../supabaseClient";
 import * as Sentry from "@sentry/react"; // IMPORTAMOS SENTRY
 
 export default function UserLeaderboard({ onViewMovie }) {
-  // Pestaña activa: 'critics', 'quiz', 'pixel', 'timeline', 'wordle' o 'sopa'
+  // Pestaña activa: 'critics', 'quiz', 'pixel', 'timeline', 'wordle', 'sopa' o 'match'
   const [activeTab, setActiveTab] = useState('critics');
   
-  // Sub-dificultad para la Sopa de Letras: 'easy', 'normal' o 'hard'
-  const [sopaDifficulty, setSopaDifficulty] = useState('normal');
+  // Sub-dificultades inicializadas por defecto en modo FÁCIL ('easy')
+  const [sopaDifficulty, setSopaDifficulty] = useState('easy');
+  const [matchDifficulty, setMatchDifficulty] = useState('easy');
   
   const [usersCritics, setUsersCritics] = useState([]);
   const [usersQuiz, setUsersQuiz] = useState([]);
   const [usersPixel, setUsersPixel] = useState([]); 
   const [usersTimeline, setUsersTimeline] = useState([]); 
   const [usersWordle, setUsersWordle] = useState([]); 
-  const [usersSopa, setUsersSopa] = useState([]); // Almacenará los datos crudos para la sopa
+  const [usersSopa, setUsersSopa] = useState([]); 
+  const [usersMatch, setUsersMatch] = useState([]); // Almacena los datos crudos para CineMatch
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -34,12 +36,12 @@ export default function UserLeaderboard({ onViewMovie }) {
     fetchLeaderboardData();
   }, []);
 
-  // Reiniciar la página y búsqueda al cambiar de pestaña activa o dificultad de sopa
+  // Reiniciar la página y búsqueda al cambiar de pestaña activa o dificultades
   useEffect(() => {
     setCurrentPage(1);
     setSearchQuery('');
     setExpandedUserId(null); 
-  }, [activeTab, sopaDifficulty]);
+  }, [activeTab, sopaDifficulty, matchDifficulty]);
 
   // Reiniciar a la página 1 cuando el usuario escribe en el buscador
   useEffect(() => {
@@ -63,6 +65,9 @@ export default function UserLeaderboard({ onViewMovie }) {
           sopa_easy_time,
           sopa_normal_time,
           sopa_hard_time,
+          match_easy_score,
+          match_normal_score,
+          match_hard_score,
           reviews (count)
         `);
 
@@ -76,9 +81,13 @@ export default function UserLeaderboard({ onViewMovie }) {
         pixelScore: user.pixel_score || 0,
         timelineScore: user.timeline_score || 0,
         wordleScore: user.wordle_score || 0,
-        sopaEasy: user.sopa_easy_time,   // Mantenemos null si no han jugado
+        sopaEasy: user.sopa_easy_time,   
         sopaNormal: user.sopa_normal_time,
-        sopaHard: user.sopa_hard_time
+        sopaHard: user.sopa_hard_time,
+        // CORRECCIÓN: Si no han jugado o da null, se asigna 0 por defecto para evitar fallos de ordenamiento
+        matchEasy: user.match_easy_score !== null && user.match_easy_score !== undefined ? user.match_easy_score : 0, 
+        matchNormal: user.match_normal_score !== null && user.match_normal_score !== undefined ? user.match_normal_score : 0,
+        matchHard: user.match_hard_score !== null && user.match_hard_score !== undefined ? user.match_hard_score : 0
       }));
 
       // 1. Ordenación para el Ranking de Críticos (por número de críticas)
@@ -103,6 +112,9 @@ export default function UserLeaderboard({ onViewMovie }) {
 
       // 6. Guardamos el dataset base para la Sopa de letras
       setUsersSopa(formattedUsers);
+
+      // 7. Guardamos el dataset base para CineMatch
+      setUsersMatch(formattedUsers);
 
     } catch (err) {
       console.error("Error al cargar los leaderboards:", err);
@@ -196,6 +208,7 @@ export default function UserLeaderboard({ onViewMovie }) {
 
   // --- SELECCIÓN Y ORDENACIÓN DINÁMICA DEL DATASET ACTIVO ---
   let currentDataset = [];
+  let propKey = '';
 
   if (activeTab === 'critics') currentDataset = usersCritics;
   else if (activeTab === 'quiz') currentDataset = usersQuiz;
@@ -203,14 +216,21 @@ export default function UserLeaderboard({ onViewMovie }) {
   else if (activeTab === 'timeline') currentDataset = usersTimeline;
   else if (activeTab === 'wordle') currentDataset = usersWordle;
   else if (activeTab === 'sopa') {
-    // Para la sopa filtramos los que tienen tiempo registrado y los ordenamos de MENOR a MAYOR tiempo
-    const propKey = sopaDifficulty === 'easy' ? 'sopaEasy' : sopaDifficulty === 'normal' ? 'sopaNormal' : 'sopaHard';
-    
+    propKey = sopaDifficulty === 'easy' ? 'sopaEasy' : sopaDifficulty === 'normal' ? 'sopaNormal' : 'sopaHard';
     const conTiempo = usersSopa.filter(u => u[propKey] !== null && u[propKey] !== undefined);
     const sinTiempo = usersSopa.filter(u => u[propKey] === null || u[propKey] === undefined);
-
+    // Ordenamos de MENOR a MAYOR tiempo
     conTiempo.sort((a, b) => a[propKey] - b[propKey]);
     currentDataset = [...conTiempo, ...sinTiempo];
+  }
+  else if (activeTab === 'match') {
+    propKey = matchDifficulty === 'easy' ? 'matchEasy' : matchDifficulty === 'normal' ? 'matchNormal' : 'matchHard';
+    // Consideramos sin récord si los puntos son exactamente 0
+    const conPuntos = usersMatch.filter(u => u[propKey] !== 0);
+    const sinPuntos = usersMatch.filter(u => u[propKey] === 0);
+    // Ordenamos de MAYOR a MENOR puntuación
+    conPuntos.sort((a, b) => b[propKey] - a[propKey]);
+    currentDataset = [...conPuntos, ...sinPuntos];
   }
 
   // Aplicamos el filtro del buscador guardando la referencia a su posición original
@@ -244,7 +264,9 @@ export default function UserLeaderboard({ onViewMovie }) {
               ? "Líneas de tiempo maestras. Historial de ordenación cronológica perfecta en el cine global."
               : activeTab === 'wordle'
               ? "Detectives del fotograma. Clasificación oficial de los que necesitan menos pistas en el Wordle de Cine."
-              : "Récords de velocidad. Clasificación oficial de los usuarios más rápidos resolviendo las matrices de películas."
+              : activeTab === 'sopa'
+              ? "Récords de velocidad. Clasificación oficial de los usuarios más rápidos resolviendo las matrices de películas."
+              : "Estrellas y carteleras. Historial de emparejamientos perfectos vinculando actores con su respectiva filmografía."
             }
           </p>
         </div>
@@ -299,6 +321,14 @@ export default function UserLeaderboard({ onViewMovie }) {
           >
             🔤 Sopa Letras
           </button>
+          <button
+            onClick={() => setActiveTab('match')}
+            className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+              activeTab === 'match' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            🎯 CineMatch
+          </button>
         </div>
       </div>
 
@@ -327,6 +357,39 @@ export default function UserLeaderboard({ onViewMovie }) {
               onClick={() => setSopaDifficulty('hard')}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                 sopaDifficulty === 'hard' ? 'bg-indigo-600 text-white shadow-sm' : 'text-indigo-600 hover:bg-indigo-100/50'
+              }`}
+            >
+              🟣 Difícil
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* SUB-MENU DE DIFICULTADES EXCLUSIVO PARA CINEMATCH */}
+      {activeTab === 'match' && (
+        <div className="mb-5 p-2 bg-blue-50/60 border border-blue-100 rounded-2xl flex items-center justify-between flex-wrap gap-2">
+          <span className="text-xs font-extrabold text-blue-950 ml-2 uppercase tracking-wide">⚙️ Dificultad del ranking:</span>
+          <div className="flex gap-1">
+            <button
+              onClick={() => setMatchDifficulty('easy')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                matchDifficulty === 'easy' ? 'bg-blue-600 text-white shadow-sm' : 'text-blue-600 hover:bg-blue-100/50'
+              }`}
+            >
+              🟢 Fácil
+            </button>
+            <button
+              onClick={() => setMatchDifficulty('normal')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                matchDifficulty === 'normal' ? 'bg-blue-600 text-white shadow-sm' : 'text-blue-600 hover:bg-blue-100/50'
+              }`}
+            >
+              🔵 Normal
+            </button>
+            <button
+              onClick={() => setMatchDifficulty('hard')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                matchDifficulty === 'hard' ? 'bg-blue-600 text-white shadow-sm' : 'text-blue-600 hover:bg-blue-100/50'
               }`}
             >
               🟣 Difícil
@@ -364,15 +427,16 @@ export default function UserLeaderboard({ onViewMovie }) {
             const isTop3 = globalIndex < 3;
             const isExpanded = activeTab === 'critics' && expandedUserId === user.id;
 
-            // Condición para ocultar/mostrar medallas si no hay tiempo en Sopa de Letras
-            const propKey = sopaDifficulty === 'easy' ? 'sopaEasy' : sopaDifficulty === 'normal' ? 'sopaNormal' : 'sopaHard';
-            const hasNoTimeInSopa = activeTab === 'sopa' && (user[propKey] === null || user[propKey] === undefined);
+            // Condición para ocultar/mostrar medallas si no hay récord registrado
+            const hasNoRecord = activeTab === 'sopa' 
+              ? (user[propKey] === null || user[propKey] === undefined)
+              : (activeTab === 'match' && user[propKey] === 0);
             
-            const bgStyles = !hasNoTimeInSopa && globalIndex === 0 
+            const bgStyles = !hasNoRecord && globalIndex === 0 
               ? "from-amber-50/50 to-transparent border-amber-100/80 shadow-amber-50/30" 
-              : !hasNoTimeInSopa && globalIndex === 1 
+              : !hasNoRecord && globalIndex === 1 
               ? "from-slate-50/70 to-transparent border-slate-200/70" 
-              : !hasNoTimeInSopa && globalIndex === 2 
+              : !hasNoRecord && globalIndex === 2 
               ? "from-orange-50/40 to-transparent border-orange-100/60" 
               : "bg-white border-gray-100";
 
@@ -391,7 +455,7 @@ export default function UserLeaderboard({ onViewMovie }) {
                 >
                   <div className="flex items-center gap-4 min-w-0">
                     <div className="w-10 flex justify-center items-center shrink-0">
-                      {hasNoTimeInSopa ? (
+                      {hasNoRecord ? (
                         <span className="w-7 h-7 bg-gray-50 text-gray-300 rounded-full flex items-center justify-center text-xs font-bold border border-gray-100">-</span>
                       ) : (
                         renderRankBadge(globalIndex)
@@ -399,7 +463,7 @@ export default function UserLeaderboard({ onViewMovie }) {
                     </div>
                     <div className="flex items-center gap-3 min-w-0">
                       <span className={`text-sm sm:text-base tracking-tight truncate ${
-                        isTop3 && !hasNoTimeInSopa ? 'font-black text-gray-900' : 'font-bold text-gray-800'
+                        isTop3 && !hasNoRecord ? 'font-black text-gray-900' : 'font-bold text-gray-800'
                       }`}>
                         {user.name}
                       </span>
@@ -439,11 +503,21 @@ export default function UserLeaderboard({ onViewMovie }) {
 
                     {activeTab === 'sopa' && (
                       <span className={`text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm border ${
-                        hasNoTimeInSopa 
+                        hasNoRecord 
                           ? 'bg-gray-50 border-gray-200 text-gray-400 italic' 
                           : 'bg-indigo-50 border-indigo-100 text-indigo-700'
                       }`}>
-                        ⏱️ {hasNoTimeInSopa ? 'Sin récord' : formatSopaTime(user[propKey])}
+                        ⏱️ {hasNoRecord ? 'Sin récord' : formatSopaTime(user[propKey])}
+                      </span>
+                    )}
+
+                    {activeTab === 'match' && (
+                      <span className={`text-xs sm:text-sm font-black px-3.5 py-1.5 rounded-xl inline-block shadow-sm border ${
+                        hasNoRecord 
+                          ? 'bg-gray-50 border-gray-200 text-gray-400 italic' 
+                          : 'bg-blue-50 border-blue-100 text-blue-600'
+                      }`}>
+                        ⭐ {hasNoRecord ? 'Sin récord' : `${user[propKey]} pts`}
                       </span>
                     )}
                   </div>

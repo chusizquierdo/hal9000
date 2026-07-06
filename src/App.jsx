@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { supabase } from "./supabaseClient";
 import * as Sentry from "@sentry/react";
 
-
 import Dashboard from './components/Dashboard';
 import MovieDetailsPage from './components/MovieDetailsPage';
 import CreateReviewPage from './components/CreateReviewPage';
@@ -21,6 +20,7 @@ import PixelGame from './components/PixelGame';
 import TimelineGame from './components/TimelineGame';
 import Wordle from './components/Wordle';
 import SopaLetras from './components/SopaLetras';
+import MatchGame from './components/MatchGame'; // <-- AQUÍ IMPORTAMOS EL NUEVO JUEGO
 
 // INICIALIZACIÓN DE SENTRY EN EL ÁMBITO GLOBAL
 Sentry.init({
@@ -258,6 +258,8 @@ export default function App() {
       setCurrentView('wordle');
     } else if (tabName === 'soup') {
       setCurrentView('soup');
+    } else if (tabName === 'match') { // <-- AQUÍ AÑADIMOS LA LÓGICA DE CINEMATCH
+      setCurrentView('match');
     } else {
       setCurrentView('dashboard');
     }
@@ -412,6 +414,10 @@ export default function App() {
         )}
         {currentView === 'soup' && (
           <SopaLetras user={session && !session.isGuest ? session.user : null} />
+        )}
+        {/* AQUÍ RENDERIZAMOS EL NUEVO JUEGO */}
+        {currentView === 'match' && (
+          <MatchGame />
         )}
       </main>
 

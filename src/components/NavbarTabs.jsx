@@ -20,7 +20,8 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
     { id: 'pixel', label: 'Pixelado' },
     { id: 'timeline', label: 'Cronología' },
     { id: 'wordle', label: 'Wordle' },
-    { id: 'soup', label: 'Sopa de Letras' }
+    { id: 'soup', label: 'Sopa de Letras' },
+    { id: 'match', label: 'CineMatch' } // Nueva pestaña añadida aquí
   ];
 
   let currentLabel = 'Biblioteca';
@@ -30,7 +31,8 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
   if (foundGame) currentLabel = `Juegos: ${foundGame.label}`;
   if (activeTab === 'contact') currentLabel = 'Contactar Admin';
 
-  const isGameActive = activeTab === 'quiz' || activeTab === 'pixel' || activeTab === 'timeline' || activeTab === 'wordle' || activeTab === 'soup';
+  // Añadida la validación para 'match'
+  const isGameActive = activeTab === 'quiz' || activeTab === 'pixel' || activeTab === 'timeline' || activeTab === 'wordle' || activeTab === 'soup' || activeTab === 'match';
 
   return (
     <div className="max-w-7xl mx-auto px-4 mt-4 relative">
@@ -161,7 +163,12 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
                     activeTab === subTab.id ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
                 >
-                  {subTab.id === 'quiz' ? '🏆 Trivial Quiz' : subTab.id === 'pixel' ? '🎬 Pixelado' : subTab.id === 'timeline' ? '⏱️ Cronología' : subTab.id === 'wordle' ? '🧩 Wordle' : '🔤 Sopa de Letras'}
+                  {subTab.id === 'quiz' ? '🏆 Trivial Quiz' : 
+                   subTab.id === 'pixel' ? '🎬 Pixelado' : 
+                   subTab.id === 'timeline' ? '⏱️ Cronología' : 
+                   subTab.id === 'wordle' ? '🧩 Wordle' : 
+                   subTab.id === 'soup' ? '🔤 Sopa de Letras' : 
+                   '🔗 CineMatch'}
                 </button>
               ))}
             </div>
