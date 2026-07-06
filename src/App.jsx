@@ -20,7 +20,8 @@ import PixelGame from './components/PixelGame';
 import TimelineGame from './components/TimelineGame';
 import Wordle from './components/Wordle';
 import SopaLetras from './components/SopaLetras';
-import MatchGame from './components/MatchGame'; // <-- AQUÍ IMPORTAMOS EL NUEVO JUEGO
+import MatchGame from './components/MatchGame';
+import PollsView from './components/PollsView';
 
 // INICIALIZACIÓN DE SENTRY EN EL ÁMBITO GLOBAL
 Sentry.init({
@@ -34,20 +35,16 @@ Sentry.init({
     Sentry.browserTracingIntegration(),
     Sentry.replayIntegration()
   ],
-  // Rastreo de rendimiento (1.0 captura el 100% de las interacciones)
   tracesSampleRate: 1.0, 
   tracePropagationTargets: ["localhost", /^https:\/\/yourserver\.io\/api/],
-  
-  // Session Replay (Grabación de sesiones)
-  replaysSessionSampleRate: 0.1, // Graba el 10% de las sesiones normales
-  replaysOnErrorSampleRate: 1.0,  // Graba el 100% de las sesiones cuando ocurre un error
-  
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1.0,
   enableLogs: true
 });
 
 export default function App() {
   const [session, setSession] = useState(null);
-  const [showAuthModal, setShowAuthModal] = useState(false); // Estado para abrir/cerrar el Login flotante
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [currentView, setCurrentView] = useState('dashboard');
   const [navigationStack, setNavigationStack] = useState([]);
   const [activeTab, setActiveTab] = useState('feed'); 
@@ -65,24 +62,6 @@ export default function App() {
     if (params.mediaId) setSelectedMediaId(params.mediaId);
     setCurrentView(view);
   };
-
-  function ErrorButton() {
-  return (
-    <button
-      onClick={() => {
-        // Send a log before throwing the error
-        Sentry.logger.info('User triggered test error', {
-          action: 'test_error_button_click',
-        });
-        // Send a test metric before throwing the error
-        Sentry.metrics.count('test_counter', 1);
-        throw new Error('This is your first error!');
-      }}
-    >
-      Break the world
-    </button>
-  );
-}
 
   const goBack = () => {
     if (navigationStack.length > 0) {
@@ -111,7 +90,7 @@ export default function App() {
     supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
         setSession(session);
-        setShowAuthModal(false); // Cierra el modal automáticamente al iniciar sesión
+        setShowAuthModal(false);
       } else {
         setSession(null);
         setIsAdmin(false);
@@ -258,8 +237,10 @@ export default function App() {
       setCurrentView('wordle');
     } else if (tabName === 'soup') {
       setCurrentView('soup');
-    } else if (tabName === 'match') { // <-- AQUÍ AÑADIMOS LA LÓGICA DE CINEMATCH
+    } else if (tabName === 'match') {
       setCurrentView('match');
+    } else if (tabName === 'polls') {
+      setCurrentView('polls');
     } else {
       setCurrentView('dashboard');
     }
@@ -275,7 +256,6 @@ export default function App() {
         <nav className="bg-white">
           <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 flex justify-between items-center gap-2">
             
-            {/* Contenedor del Logo */}
             <div className="relative group flex items-center shrink-0">
               <h1 
                 className="text-lg sm:text-2xl font-black text-gray-900 tracking-tighter hover:text-blue-600 transition-colors flex items-center gap-2 sm:gap-4 cursor-pointer"
@@ -300,7 +280,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Contenedor de botones derecho adaptado al login modular */}
             <div className="flex gap-2 sm:gap-4 items-center shrink-0">
               {session && !session.isGuest && (
                 <button 
@@ -358,7 +337,6 @@ export default function App() {
                   )}
                 </div>
               ) : (
-                /* ACCESO CONFIGURADO: Botón de Iniciar sesión si no hay usuario autenticado */
                 <button 
                   onClick={() => setShowAuthModal(true)} 
                   className="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-md hover:shadow-lg active:scale-95 shrink-0"
@@ -415,13 +393,14 @@ export default function App() {
         {currentView === 'soup' && (
           <SopaLetras user={session && !session.isGuest ? session.user : null} />
         )}
-        {/* AQUÍ RENDERIZAMOS EL NUEVO JUEGO */}
         {currentView === 'match' && (
           <MatchGame />
         )}
+        {currentView === 'polls' && (
+          <PollsView isAdmin={isAdmin} />
+        )}
       </main>
 
-      {/* RENDERIZADO MODAL DE AUTH: Se superpone a la web conservando los estilos de terminal */}
       {showAuthModal && (
         <Auth onGuestLogin={handleGuestLogin} onClose={() => setShowAuthModal(false)} />
       )}

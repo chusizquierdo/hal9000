@@ -13,6 +13,7 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
     { id: 'trailers', label: 'Próximos Trailers' },
     { id: 'suggestions', label: '¿Qué ver?' },
     { id: 'news', label: 'Noticias' },
+    { id: 'polls', label: 'Encuestas' }, // Añadido aquí
   ];
 
   const gameTabs = [
@@ -21,7 +22,7 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
     { id: 'timeline', label: 'Cronología' },
     { id: 'wordle', label: 'Wordle' },
     { id: 'soup', label: 'Sopa de Letras' },
-    { id: 'match', label: 'CineMatch' } // Nueva pestaña añadida aquí
+    { id: 'match', label: 'CineMatch' }
   ];
 
   let currentLabel = 'Biblioteca';
