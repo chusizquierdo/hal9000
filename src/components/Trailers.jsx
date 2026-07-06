@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import * as Sentry from "@sentry/react"; // IMPORTAMOS SENTRY
 
 export default function Trailers() {
   const [validTrailersPool, setValidTrailersPool] = useState([]); // Almacena TODOS los tráilers válidos confirmados con vídeo
@@ -21,6 +22,8 @@ export default function Trailers() {
         const resDiscover = await fetch(
           `https://api.themoviedb.org/3/discover/movie?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES&sort_by=popularity.desc&primary_release_date.gte=${today}&page=1`
         );
+        if (!resDiscover.ok) throw new Error("Error en la respuesta al consultar películas en discover de tráilers.");
+        
         const dataDiscover = await resDiscover.json();
         if (dataDiscover.results) megaHypeMovies = dataDiscover.results;
 
@@ -29,6 +32,8 @@ export default function Trailers() {
           const resUpcoming = await fetch(
             `https://api.themoviedb.org/3/movie/upcoming?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES&page=${i}&region=ES`
           );
+          if (!resUpcoming.ok) throw new Error(`Error en la respuesta de películas próximas (upcoming), página ${i}.`);
+          
           const dataUpcoming = await resUpcoming.json();
           if (dataUpcoming.results) upcomingMovies = [...upcomingMovies, ...dataUpcoming.results];
         }
@@ -49,6 +54,8 @@ export default function Trailers() {
               const videoRes = await fetch(
                 `https://api.themoviedb.org/3/movie/${m.id}/videos?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES`
               );
+              if (!videoRes.ok) throw new Error(`Fallo en videos en español para ID: ${m.id}`);
+              
               const videoData = await videoRes.json();
               
               let trailer = videoData.results?.find(
@@ -60,6 +67,8 @@ export default function Trailers() {
                 const fallbackRes = await fetch(
                   `https://api.themoviedb.org/3/movie/${m.id}/videos?api_key=8005d659cd2756fbe0a09eaba113b878`
                 );
+                if (!fallbackRes.ok) throw new Error(`Fallo en videos fallback para ID: ${m.id}`);
+                
                 const fallbackData = await fallbackRes.json();
                 trailer = fallbackData.results?.find(
                   v => (v.type === 'Trailer' || v.type === 'Teaser' || v.type === 'Clip') && v.site === 'YouTube'
@@ -68,6 +77,8 @@ export default function Trailers() {
 
               return trailer ? { ...m, trailerKey: trailer.key } : null;
             } catch (err) {
+              console.error(`Error procesando videos para película ${m.id}:`, err);
+              Sentry.captureException(err); // Capturamos fallos individuales de red o mapeo en la resolución de promesas por película
               return null;
             }
           })
@@ -79,6 +90,7 @@ export default function Trailers() {
         setLoading(false);
       } catch (e) {
         console.error("Error al compilar almacén de tráileres:", e);
+        Sentry.captureException(e); // Capturamos fallos genéricos o interrupciones severas en la secuencia global de peticiones de cartelera
         setLoading(false);
       }
     };

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import * as Sentry from "@sentry/react"; // IMPORTAMOS SENTRY
 
 // Mapa unificado de IDs para mostrar los nombres de los géneros en los chips de la lista
 const GENRE_MAP = {
@@ -54,6 +55,8 @@ export default function Rankings({ onViewMovie }) {
         url = `https://api.themoviedb.org/3/discover/${mediaType}?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES&sort_by=vote_average.desc&vote_count.gte=${minVotes}&with_genres=${selectedGenre}&page=1`;
       }
       const res = await fetch(url);
+      if (!res.ok) throw new Error("Error en la respuesta al consultar Rankings Globales.");
+      
       const data = await res.json();
       if (data.results) {
         const formatted = data.results.map(item => ({
@@ -67,7 +70,12 @@ export default function Rankings({ onViewMovie }) {
         }));
         setRankedItems(formatted);
       }
-    } catch (error) { console.error(error); } finally { setLoading(false); }
+    } catch (error) { 
+      console.error(error); 
+      Sentry.captureException(error); // Capturamos fallos de red al consultar rankings de valoración
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const fetchBoxOfficeRankings = async () => {
@@ -75,10 +83,17 @@ export default function Rankings({ onViewMovie }) {
     try {
       const API_KEY = "8005d659cd2756fbe0a09eaba113b878";
       const pages = [1, 2, 3, 4, 5];
-      const pagePromises = pages.map(p => fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${API_KEY}&language=es-ES&sort_by=revenue.desc&page=${p}`).then(res => res.json()));
+      const pagePromises = pages.map(p => fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${API_KEY}&language=es-ES&sort_by=revenue.desc&page=${p}`).then(res => {
+        if (!res.ok) throw new Error(`Fallo al descargar página de taquilla ${p}`);
+        return res.json();
+      }));
       const pagesData = await Promise.all(pagePromises);
       let rawMovies = pagesData.flatMap(d => d.results || []);
-      const detailsData = await Promise.all(rawMovies.slice(0, 100).map(m => fetch(`https://api.themoviedb.org/3/movie/${m.id}?api_key=${API_KEY}&language=es-ES`).then(res => res.json())));
+      
+      const detailsData = await Promise.all(rawMovies.slice(0, 100).map(m => fetch(`https://api.themoviedb.org/3/movie/${m.id}?api_key=${API_KEY}&language=es-ES`).then(res => {
+        if (!res.ok) throw new Error(`Fallo al descargar detalles financieros de película ${m.id}`);
+        return res.json();
+      })));
 
       const formatted = detailsData.map(item => ({
         id: item.id,
@@ -91,7 +106,12 @@ export default function Rankings({ onViewMovie }) {
         revenue: item.revenue || 0
       }));
       setRankedItems(formatted.sort((a, b) => b.revenue - a.revenue));
-    } catch (error) { console.error(error); } finally { setLoading(false); }
+    } catch (error) { 
+      console.error(error); 
+      Sentry.captureException(error); // Capturamos excepciones concurrentes en las llamadas paralelas de recaudación
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const getPodiumBadge = (index) => index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;

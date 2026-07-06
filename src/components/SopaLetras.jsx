@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from "../supabaseClient";
 import { SOPA_MOVIES_POOL } from '../listados';
+import * as Sentry from "@sentry/react"; // IMPORTAMOS SENTRY
 
 export default function SopaLetras({ user }) {
   // 1. Control de acceso
@@ -191,6 +192,7 @@ export default function SopaLetras({ user }) {
       }
     } catch (err) {
       console.error("Error al sincronizar el récord:", err);
+      Sentry.captureException(err); // Capturamos fallos al intentar sincronizar los récords de tiempos del usuario
     }
   };
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from "../supabaseClient";
+import * as Sentry from "@sentry/react"; // IMPORTAMOS SENTRY
 
 export default function UserLeaderboard({ onViewMovie }) {
   // Pestaña activa: 'critics', 'quiz', 'pixel', 'timeline', 'wordle' o 'sopa'
@@ -48,6 +49,7 @@ export default function UserLeaderboard({ onViewMovie }) {
   const fetchLeaderboardData = async () => {
     try {
       setLoading(true);
+      setError(null);
       
       const { data, error: dbError } = await supabase
         .from('profiles')
@@ -104,6 +106,7 @@ export default function UserLeaderboard({ onViewMovie }) {
 
     } catch (err) {
       console.error("Error al cargar los leaderboards:", err);
+      Sentry.captureException(err); // Capturamos el error global de sincronización de perfiles
       setError("No se pudo sincronizar los rankings de la plataforma.");
     } finally {
       setLoading(false);
@@ -147,6 +150,7 @@ export default function UserLeaderboard({ onViewMovie }) {
 
     } catch (err) {
       console.error("Error al cargar las reseñas del crítico:", err);
+      Sentry.captureException(err); // Capturamos el fallo específico de lectura de reseñas de este crítico
     } finally {
       setLoadingReviews(false);
     }
@@ -444,6 +448,40 @@ export default function UserLeaderboard({ onViewMovie }) {
                     )}
                   </div>
                 </div>
+
+                {/* DESPLEGABLE DE RESEÑAS (Sección Críticos) */}
+                {isExpanded && (
+                  <div className="bg-gray-50/50 border-t border-gray-100 p-4 sm:p-6 space-y-4">
+                    <h4 className="text-xs font-black uppercase text-gray-400 tracking-wider">Historial de críticas de {user.name}</h4>
+                    {loadingReviews ? (
+                      <p className="text-xs font-medium text-gray-400 animate-pulse">Cargando publicaciones del analista...</p>
+                    ) : !userReviews[user.id] || userReviews[user.id].length === 0 ? (
+                      <p className="text-xs font-medium text-gray-400 italic">Este usuario no ha guardado comentarios escritos en cartelera.</p>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-3">
+                        {userReviews[user.id].map((review) => (
+                          <div key={review.id} className="p-4 bg-white border border-gray-100 rounded-xl shadow-sm flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                            <div className="space-y-1">
+                              <button
+                                onClick={() => onViewMovie && review.media_items?.id && onViewMovie(review.media_items.id)}
+                                className="text-sm font-bold text-gray-900 hover:text-blue-600 text-left transition-colors block"
+                              >
+                                {review.media_items?.title || 'Contenido Desconocido'}
+                              </button>
+                              <p className="text-xs text-gray-600 font-medium whitespace-pre-line">{review.comment}</p>
+                              <p className="text-[10px] text-gray-400 font-medium">
+                                Publicado el {new Date(review.created_at).toLocaleDateString('es-ES')}
+                              </p>
+                            </div>
+                            <div className="shrink-0 self-start bg-amber-50 text-amber-600 font-black text-xs px-2 py-1 rounded-lg border border-amber-100">
+                              ⭐ {review.rating} / 10
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })

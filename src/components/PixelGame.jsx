@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from "../supabaseClient";
+import * as Sentry from "@sentry/react"; // IMPORTAMOS SENTRY
 import { POPULAR_MOVIES_POOL } from '../listados';
 import { HOLLYWOOD_ACTORS } from '../listados';
 
@@ -41,6 +42,7 @@ export default function PixelGame({ onBack }) {
         }
       } catch (err) {
         console.error("Error al verificar la identidad del usuario:", err);
+        Sentry.captureException(err); // Capturamos fallos en la autenticación de Supabase
       } finally {
         setCheckingAuth(false);
       }
@@ -125,6 +127,7 @@ export default function PixelGame({ onBack }) {
 
     } catch (err) {
       console.error(err);
+      Sentry.captureException(err); // Capturamos fallos de red o problemas de parseo de TMDb
       setErrorMessage("Error de sincronización con TMDB. Comprueba tu API Key.");
       setGameState('lost');
     }
@@ -177,6 +180,7 @@ export default function PixelGame({ onBack }) {
       if (uErr) throw uErr;
     } catch (err) {
       console.error("Error al guardar en Supabase:", err);
+      Sentry.captureException(err); // Capturamos el error si falla la lectura o la escritura del score
     } finally {
       setSavingPoints(false);
     }

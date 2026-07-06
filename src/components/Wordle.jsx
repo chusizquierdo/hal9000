@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { POPULAR_MOVIES_POOL } from '../listados';
+import * as Sentry from "@sentry/react"; // IMPORTAMOS SENTRY
 
 const TMDB_API_KEY = '8005d659cd2756fbe0a09eaba113b878'; 
 const MAX_ATTEMPTS = 4; 
@@ -61,6 +62,13 @@ export default function Wordle({ user }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (user) {
+      resetFullSession();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
   if (!user) {
     return (
       <div className="max-w-4xl mx-auto p-8 mt-10 bg-black border border-red-900/50 rounded-3xl shadow-2xl relative overflow-hidden">
@@ -82,11 +90,6 @@ export default function Wordle({ user }) {
       </div>
     );
   }
-
-  useEffect(() => {
-    resetFullSession();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const resetFullSession = () => {
     setMovieRound(1);
@@ -113,12 +116,16 @@ export default function Wordle({ user }) {
       selectedTitle = poolToUse[Math.floor(Math.random() * poolToUse.length)];
       try {
         const searchRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(selectedTitle)}&language=es-ES`);
+        if (!searchRes.ok) throw new Error(`HTTP error fetching search for movie: ${selectedTitle}`);
+        
         const searchData = await searchRes.json();
         
         if (searchData.results && searchData.results.length > 0) {
           fetchedMovie = searchData.results[0];
           
           const imagesRes = await fetch(`https://api.themoviedb.org/3/movie/${fetchedMovie.id}/images?api_key=${TMDB_API_KEY}`);
+          if (!imagesRes.ok) throw new Error(`HTTP error fetching images for movie ID: ${fetchedMovie.id}`);
+          
           const imagesData = await imagesRes.json();
           
           let backdrops = imagesData.backdrops || [];
@@ -137,6 +144,7 @@ export default function Wordle({ user }) {
         }
       } catch (e) {
         console.error("Error en búsqueda intermedia de API:", e);
+        Sentry.captureException(e); // Capturamos el error en Sentry para monitorizar problemas con la API de TMDb
       }
       searchAttempts++;
     }
@@ -261,6 +269,7 @@ export default function Wordle({ user }) {
       }
     } catch (error) {
       console.error("Error gestión puntuación:", error);
+      Sentry.captureException(error); // Capturamos fallos en la consulta o guardado de datos en Supabase
     }
   };
 
@@ -421,7 +430,7 @@ export default function Wordle({ user }) {
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-center animate-fade-in shadow-sm mt-4">
           <h3 className="text-2xl font-black text-emerald-700 mb-2">¡Correcto! 🏆</h3>
           <p className="text-emerald-600 mb-4 font-medium">
-            La película era exactamente <strong>{targetPoolTitle}</strong>. ¡Has ganado <strong className="text-lg">{scoreEarned} puntos</strong>!
+            La película era exactly <strong>{targetPoolTitle}</strong>. ¡Has ganado <strong className="text-lg">{scoreEarned} puntos</strong>!
           </p>
           <button type="button" onClick={handleAdvanceRound} className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-xl font-bold shadow-md transition-colors">
             {movieRound < TOTAL_MOVIES_PER_ROUND ? `Siguiente Película (${movieRound + 1}/${TOTAL_MOVIES_PER_ROUND})` : 'Ver Resultado Global'}

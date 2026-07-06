@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import * as Sentry from "@sentry/react"; // IMPORTAMOS SENTRY
 
 export default function ActorDetailsPage({ actorId, onBack, onMediaClick }) {
   const [actorInfo, setActorInfo] = useState(null);
@@ -16,6 +17,9 @@ export default function ActorDetailsPage({ actorId, onBack, onMediaClick }) {
       const infoRes = await fetch(
         `https://api.themoviedb.org/3/person/${actorId}?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES`
       );
+      
+      if (!infoRes.ok) throw new Error(`Error HTTP al solicitar información del actor con ID ${actorId}`);
+      
       const infoData = await infoRes.json();
       setActorInfo(infoData);
 
@@ -23,6 +27,9 @@ export default function ActorDetailsPage({ actorId, onBack, onMediaClick }) {
       const creditsRes = await fetch(
         `https://api.themoviedb.org/3/person/${actorId}/combined_credits?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES`
       );
+      
+      if (!creditsRes.ok) throw new Error(`Error HTTP al solicitar créditos del actor con ID ${actorId}`);
+      
       const creditsData = await creditsRes.json();
       
       // 3. Filtrado y ordenación inteligente ("Algoritmo de Iconicidad")
@@ -41,6 +48,7 @@ export default function ActorDetailsPage({ actorId, onBack, onMediaClick }) {
       setMovieCredits(sortedCredits);
     } catch (error) {
       console.error("Error al recuperar datos del actor:", error);
+      Sentry.captureException(error); // Capturamos el error en Sentry para monitorizar fallos del catálogo de TMDb
     } finally {
       setLoading(false);
     }

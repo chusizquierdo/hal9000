@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
+import * as Sentry from "@sentry/react"; // IMPORTAMOS SENTRY
 
 export default function AdminPanel() {
   const [profiles, setProfiles] = useState([]);
@@ -9,14 +10,30 @@ export default function AdminPanel() {
   }, []);
 
   const fetchProfiles = async () => {
-    const { data } = await supabase.from('profiles').select('*');
-    setProfiles(data);
+    try {
+      const { data, error } = await supabase.from('profiles').select('*');
+      
+      if (error) throw error;
+      
+      setProfiles(data || []);
+    } catch (err) {
+      console.error("Error al obtener perfiles en el Panel de Administración:", err);
+      Sentry.captureException(err); // Capturamos fallos de lectura de perfiles en Supabase
+    }
   };
 
   const toggleRole = async (id, currentRole) => {
     const newRole = currentRole === 'admin' ? 'user' : 'admin';
-    await supabase.from('profiles').update({ role: newRole }).eq('id', id);
-    fetchProfiles(); // Recargar lista
+    try {
+      const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', id);
+      
+      if (error) throw error;
+      
+      await fetchProfiles(); // Recargar lista de forma controlada
+    } catch (err) {
+      console.error(`Error al alternar el rol del usuario con ID ${id}:`, err);
+      Sentry.captureException(err); // Capturamos fallos de escritura de privilegios en Supabase
+    }
   };
 
   return (

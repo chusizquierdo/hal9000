@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import * as Sentry from "@sentry/react"; // IMPORTAMOS SENTRY
 
 export default function ProfileSettings({ session, onBack, onProfileUpdated }) {
   const [loading, setLoading] = useState(false);
@@ -22,11 +23,17 @@ export default function ProfileSettings({ session, onBack, onProfileUpdated }) {
         .eq('id', user.id)
         .maybeSingle();
 
+      if (error) {
+        throw error; // Forzamos el salto al catch si Supabase responde con un error de consulta
+      }
+
       if (data) {
         setUsername(data.username || '');
         setAvatarUrl(data.avatar_url || '');
       }
     } catch (error) {
+      console.error('Error cargando datos del perfil:', error);
+      Sentry.captureException(error); // Capturamos fallos de red o de base de datos al leer el perfil
       alert('Error cargando datos del perfil');
     } finally {
       setLoading(false);
@@ -55,6 +62,8 @@ export default function ProfileSettings({ session, onBack, onProfileUpdated }) {
       alert('¡Perfil actualizado con éxito!');
       onProfileUpdated(); // Avisa a App.jsx para refrescar la barra superior
     } catch (error) {
+      console.error('Error al actualizar el perfil:', error);
+      Sentry.captureException(error); // Capturamos fallos en la actualización de datos (ej. nombre duplicado si es único)
       alert('Error al actualizar el perfil: ' + error.message);
     } finally {
       setLoading(false);
@@ -88,6 +97,8 @@ export default function ProfileSettings({ session, onBack, onProfileUpdated }) {
 
       setAvatarUrl(publicUrl);
     } catch (error) {
+      console.error('Error subiendo la imagen:', error);
+      Sentry.captureException(error); // Capturamos fallos críticos de almacenamiento, cuotas expiradas o pérdidas de red
       alert('Error subiendo la imagen: ' + error.message);
     } finally {
       setUploading(false);

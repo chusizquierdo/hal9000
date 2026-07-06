@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from "../supabaseClient";
 import { POPULAR_MOVIES_POOL } from '../listados';
+import * as Sentry from "@sentry/react"; // IMPORTAMOS SENTRY
 
 // CONFIGURACIÓN DE LA API DE TMDB
 const TMDB_API_KEY = '8005d659cd2756fbe0a09eaba113b878';
@@ -26,13 +27,16 @@ export default function TimelineGame({ onBack }) {
   useEffect(() => {
     const checkUserAuthentication = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError) throw authError;
+        
         setCurrentUser(user);
         if (user) {
           initNewGame();
         }
       } catch (err) {
         console.error("Error al verificar la identidad del usuario:", err);
+        Sentry.captureException(err); // Capturamos fallos en la autenticación inicial del juego
       } finally {
         setCheckingAuth(false);
       }
@@ -61,6 +65,8 @@ export default function TimelineGame({ onBack }) {
         if (fetchedMovies.length === 5) break;
 
         const res = await fetch(`${TMDB_BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(title)}&language=es-ES`);
+        if (!res.ok) throw new Error(`Fallo al consultar la película: ${title}`);
+        
         const data = await res.json();
         const movieData = data.results && data.results[0];
 
@@ -101,6 +107,7 @@ export default function TimelineGame({ onBack }) {
       setGameState('playing');
     } catch (err) {
       console.error("Error cargando la ronda cronológica:", err);
+      Sentry.captureException(err); // Capturamos incidencias de red o parseo con la API de TMDb
       setGameState('playing');
     }
   };
@@ -203,6 +210,7 @@ export default function TimelineGame({ onBack }) {
       }
     } catch (err) {
       console.error("Error al guardar puntuación en el timeline:", err);
+      Sentry.captureException(err); // Capturamos fallos en la persistencia del récord de timeline en Supabase
     }
   };
 

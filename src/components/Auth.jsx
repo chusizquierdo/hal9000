@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import * as Sentry from "@sentry/react"; // IMPORTAMOS SENTRY
 
 const CINEMA_QUOTES = [
   "Francamente, querida, eso me importa un bledo. (Lo que el viento se llevó)",
@@ -74,7 +75,7 @@ const CINEMA_QUOTES = [
   "No tenéis ninguna posibilidad, pero... contáis con mi simpatía. (Alien, el octavo pasajero)"
 ];
 
-export default function Auth({ onClose }) { // Removed 'onGuestLogin' prop
+export default function Auth({ onClose }) {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -96,36 +97,49 @@ export default function Auth({ onClose }) { // Removed 'onGuestLogin' prop
     setLoading(true);
     setMessage('');
     
-    if (view === 'signup') {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { username } },
-      });
-      if (error) {
-        setMessage(error.message);
-      } else {
-        setMessage('¡Registro exitoso! Por favor, verifica tu correo electrónico para activar tu cuenta.');
-      }
-    } else if (view === 'login') {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        if (error.message === 'Email not confirmed') {
-          setMessage('⚠️ Tu correo electrónico aún no ha sido verificado. Por favor, haz clic en el enlace que enviamos a tu bandeja de entrada antes de acceder.');
-        } else if (error.message === 'Invalid login credentials') {
-          setMessage('❌ Acceso denegado. El correo electrónico o la contraseña son incorrectos.');
-        } else {
+    try {
+      if (view === 'signup') {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { username } },
+        });
+        if (error) {
           setMessage(error.message);
+          Sentry.captureException(error); // Monitorizar fallos en el registro de cuentas
+        } else {
+          setMessage('¡Registro exitoso! Por favor, verifica tu correo electrónico para activar tu cuenta.');
+        }
+      } else if (view === 'login') {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+          if (error.message === 'Email not confirmed') {
+            setMessage('⚠️ Tu correo electrónico aún no ha sido verificado. Por favor, haz clic en el enlace que enviamos a tu bandeja de entrada antes de acceder.');
+          } else if (error.message === 'Invalid login credentials') {
+            setMessage('❌ Acceso denegado. El correo electrónico o la contraseña son incorrectos.');
+          } else {
+            setMessage(error.message);
+          }
+          Sentry.captureException(error); // Monitorizar credenciales incorrectas o problemas de login
+        }
+      } else if (view === 'forgot') {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}`,
+        });
+        if (error) {
+          setMessage(error.message);
+          Sentry.captureException(error); // Monitorizar problemas con la recuperación de contraseñas
+        } else {
+          setMessage('Se ha enviado un enlace de recuperación a tu correo electrónico.');
         }
       }
-    } else if (view === 'forgot') {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}`,
-      });
-      if (error) setMessage(error.message);
-      else setMessage('Se ha enviado un enlace de recuperación a tu correo electrónico.');
+    } catch (err) {
+      console.error("Error inesperado en el flujo de autenticación:", err);
+      Sentry.captureException(err);
+      setMessage("Ocurrió un error inesperado al procesar la autenticación.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -170,8 +184,6 @@ export default function Auth({ onClose }) { // Removed 'onGuestLogin' prop
             <button disabled={loading} className="w-full bg-red-900 text-red-100 p-3 md:p-4 rounded-lg font-bold hover:bg-red-800 transition-all uppercase tracking-widest">
               {loading ? 'Procesando...' : view === 'signup' ? 'Crear cuenta' : view === 'forgot' ? 'Enviar enlace' : 'Acceder al Sistema'}
             </button>
-
-            {/* DELETED: The 'onGuestLogin' observer button is gone from here */}
             
             <div className="flex flex-col gap-2">
               <button type="button" className="text-xs md:text-sm text-gray-500 hover:text-red-400 text-center" onClick={() => setView(view === 'login' ? 'signup' : 'login')}>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ALL_QUIZ_QUESTIONS } from './quizData';
 import { supabase } from "../supabaseClient";
+import * as Sentry from "@sentry/react"; // IMPORTAMOS SENTRY
 
 // Tu API Key de TMDb activa para las fotos reales de Hollywood tanto en local como en producción
 const TMDB_API_KEY = '8005d659cd2756fbe0a09eaba113b878';
@@ -42,6 +43,7 @@ export default function QuizGame({ onBack }) {
         setCurrentUser(user);
       } catch (err) {
         console.error("Error al verificar la identidad del usuario:", err);
+        Sentry.captureException(err); // Captura fallos de sesión o problemas de comunicación con Supabase
       } finally {
         setCheckingAuth(false);
       }
@@ -76,7 +78,10 @@ export default function QuizGame({ onBack }) {
 
     const query = encodeURIComponent(currentQuestion.tituloPelicula);
     fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${query}&language=es-ES`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error("Respuesta de API incorrecta al buscar película.");
+        return res.json();
+      })
       .then(data => {
         if (data.results && data.results.length > 0) {
           const movie = data.results[0];
@@ -88,7 +93,10 @@ export default function QuizGame({ onBack }) {
           }
         }
       })
-      .catch(err => console.error("Error al consultar TMDb API:", err));
+      .catch(err => {
+        console.error("Error al consultar TMDb API:", err);
+        Sentry.captureException(err); // Captura si la API Key está caída, bloqueada o no hay conexión de red
+      });
   }, [currentQuestionIndex, currentQuestion, currentUser, checkingAuth]);
 
   // Efecto para guardar automáticamente la puntuación en Supabase al terminar el juego
@@ -121,6 +129,7 @@ export default function QuizGame({ onBack }) {
       }
     } catch (err) {
       console.error("Error al guardar la puntuación en la tabla profiles:", err);
+      Sentry.captureException(err); // Captura problemas al actualizar los tops o fallos de la base de datos
     }
   };
 

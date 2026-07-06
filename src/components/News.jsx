@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import * as Sentry from "@sentry/react"; // IMPORTAMOS SENTRY
 
 export default function News() {
   const [articles, setArticles] = useState([]);
@@ -48,14 +49,22 @@ export default function News() {
                 };
               });
             }
-          } catch (err) { console.error(`Error en ${feed.sourceName}:`, err); }
+          } catch (err) { 
+            console.error(`Error en ${feed.sourceName}:`, err); 
+            Sentry.captureException(err); // Captura si un RSS específico da error o cambia de estructura
+          }
           return [];
         });
 
         const results = await Promise.all(feedPromises);
         const allArticles = results.flat().sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
         setArticles(allArticles);
-      } catch (e) { console.error("Error global:", e); } finally { setLoading(false); }
+      } catch (e) { 
+        console.error("Error global:", e); 
+        Sentry.captureException(e); // Captura si falla el Promise.all o el ordenamiento de artículos
+      } finally { 
+        setLoading(false); 
+      }
     };
 
     if (!selectedArticle) fetchAllNews();

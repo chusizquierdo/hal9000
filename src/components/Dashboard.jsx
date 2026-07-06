@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
+import * as Sentry from "@sentry/react"; // IMPORTAMOS SENTRY
 import Trailers from './Trailers'; 
 import Upcoming from './Upcoming';
 import Rankings from './Rankings';
@@ -25,7 +26,10 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
       .from('media_items')
       .select(`*, reviews (id, comment, rating, created_at, user_id)`);
     
-    if (error) console.error("Error al cargar datos:", error);
+    if (error) {
+      console.error("Error al cargar datos:", error);
+      Sentry.captureException(error); // Capturamos el fallo de lectura de Supabase
+    }
     
     if (itemsFromDb) {
       const itemsWithData = await Promise.all(itemsFromDb.map(async (m) => {
@@ -43,7 +47,10 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
           year = date ? parseInt(date.substring(0, 4)) : 0;
           title = data.title || data.name;
           genres = data.genres ? data.genres.map(g => g.name) : [];
-        } catch (e) { console.error("Error TMDB"); }
+        } catch (e) { 
+          console.error("Error TMDB"); 
+          Sentry.captureException(e); // Capturamos fallos de conexión o de mapeo con la API de TMDb
+        }
 
         const sortedReviews = (m.reviews || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         const userReview = userIdFilter ? (m.reviews || []).find(r => r.user_id === userIdFilter) : null;
@@ -67,11 +74,23 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
   const handleDeleteMediaItem = async (itemId, title, e) => {
     e.stopPropagation(); 
     if (!window.confirm(`¿ELIMINAR DEFINITIVAMENTE "${title}"?`)) return;
-    await supabase.from('reviews').delete().eq('media_id', itemId);
-    await supabase.from('watchlist').delete().eq('media_item_id', itemId);
-    const { error } = await supabase.from('media_items').delete().eq('id', itemId);
-    if (error) alert("Error al borrar: " + error.message);
-    else await fetchMediaWithData();
+    
+    try {
+      await supabase.from('reviews').delete().eq('media_id', itemId);
+      await supabase.from('watchlist').delete().eq('media_item_id', itemId);
+      const { error } = await supabase.from('media_items').delete().eq('id', itemId);
+      
+      if (error) {
+        alert("Error al borrar: " + error.message);
+        Sentry.captureException(error); // Capturamos el error si Supabase rechaza el borrado
+      } else {
+        await fetchMediaWithData();
+      }
+    } catch (catchError) {
+      console.error("Error crítico en el borrado:", catchError);
+      Sentry.captureException(catchError); // Capturamos cualquier excepción inesperada en el flujo
+      alert("Ocurrió un error inesperado al intentar borrar el elemento.");
+    }
   };
 
   const allGenres = [...new Set(items.flatMap(item => item.genres))].sort();

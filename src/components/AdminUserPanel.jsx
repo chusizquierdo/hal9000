@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from "../supabaseClient";
+import * as Sentry from "@sentry/react"; // IMPORTAMOS SENTRY
 
 export default function AdminUserPanel({ isAdmin }) {
   const [activeSubTab, setActiveSubTab] = useState('users'); // 'users' o 'suggestions'
@@ -75,6 +76,7 @@ export default function AdminUserPanel({ isAdmin }) {
       
     } catch (err) {
       console.error("Error al obtener la lista de usuarios:", err);
+      Sentry.captureException(err); // Capturamos fallos críticos al consultar perfiles
       setError("Error crítico al intentar consultar la tabla profiles.");
     } finally {
       setLoading(false);
@@ -98,6 +100,7 @@ export default function AdminUserPanel({ isAdmin }) {
       setSuggestions(data || []);
     } catch (err) {
       console.error("Error al leer sugerencias:", err);
+      Sentry.captureException(err); // Capturamos errores de la tabla admin_suggestions
       alert("Error al cargar el buzón de sugerencias.");
     } finally {
       setLoadingSuggestions(false);
@@ -142,6 +145,7 @@ export default function AdminUserPanel({ isAdmin }) {
         fetchUsers();
       } catch (err) {
         console.error("Error al procesar la baja del usuario:", err);
+        Sentry.captureException(err); // Capturamos fallos en cascada del borrado de usuarios
         alert("Ocurrió un error en Supabase al intentar borrar los registros.");
       } finally {
         setLoading(false);
@@ -160,6 +164,7 @@ export default function AdminUserPanel({ isAdmin }) {
       setSuggestions(prev => prev.filter(item => item.id !== id));
     } catch (err) {
       console.error("Error al completar la sugerencia:", err);
+      Sentry.captureException(err); // Capturamos problemas al resolver las sugerencias
       alert("No se pudo eliminar el registro de la base de datos.");
     }
   };

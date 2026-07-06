@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import * as Sentry from "@sentry/react"; // IMPORTAMOS SENTRY
 
 export default function Upcoming({ onViewMovie }) {
   const [upcoming, setUpcoming] = useState([]);
@@ -52,6 +53,8 @@ export default function Upcoming({ onViewMovie }) {
         for (let i = 1; i <= 4; i++) {
           const url = `https://api.themoviedb.org/3/discover/movie?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES&region=ES&sort_by=release_date.asc&release_date.gte=${startStr}&release_date.lte=${endStr}&page=${i}&with_release_type=3|2`;
           const res = await fetch(url);
+          if (!res.ok) throw new Error(`Error en la respuesta de discover de estrenos, página ${i}.`);
+          
           const data = await res.json();
           
           if (data.results && data.results.length > 0) {
@@ -78,6 +81,7 @@ export default function Upcoming({ onViewMovie }) {
         setUpcoming(sorted);
       } catch (e) { 
         console.error("Error al cargar estrenos:", e); 
+        Sentry.captureException(e); // Capturamos fallos de red o parseo en el feed iterativo de próximos estrenos
       } finally {
         setLoading(false);
       }

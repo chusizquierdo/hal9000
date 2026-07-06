@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
+import * as Sentry from "@sentry/react"; // IMPORTAMOS SENTRY
 
 export default function Watchlist({ onViewMovie, userId, onBack }) {
   const [items, setItems] = useState([]);
@@ -11,44 +12,63 @@ export default function Watchlist({ onViewMovie, userId, onBack }) {
 
   const fetchWatchlist = async () => {
     setLoading(true);
-    const { data: watchlistData } = await supabase
-      .from('watchlist')
-      .select(`id, media_item_id, media_items (*)`)
-      .eq('user_id', userId);
+    try {
+      const { data: watchlistData, error: dbError } = await supabase
+        .from('watchlist')
+        .select(`id, media_item_id, media_items (*)`)
+        .eq('user_id', userId);
 
-    if (watchlistData) {
-      const hydratedItems = await Promise.all(watchlistData.map(async (row) => {
-        const m = row.media_items;
-        let year = 0;
-        let title = m.title;
-        let genres = [];
+      if (dbError) throw dbError;
 
-        try {
-          const type = m.media_type === 'tv' ? 'tv' : 'movie';
-          const res = await fetch(`https://api.themoviedb.org/3/${type}/${m.api_id}?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES`);
-          const data = await res.json();
-          const date = data.release_date || data.first_air_date;
-          year = date ? parseInt(date.substring(0, 4)) : 0;
-          title = data.title || data.name;
-          genres = data.genres ? data.genres.map(g => g.name) : [];
-        } catch (e) { console.error("Error obteniendo datos de TMDB"); }
+      if (watchlistData) {
+        const hydratedItems = await Promise.all(watchlistData.map(async (row) => {
+          const m = row.media_items;
+          let year = 0;
+          let title = m.title;
+          let genres = [];
 
-        return { watchlistRowId: row.id, ...m, year, title, genres };
-      }));
-      setItems(hydratedItems);
+          try {
+            const type = m.media_type === 'tv' ? 'tv' : 'movie';
+            const res = await fetch(`https://api.themoviedb.org/3/${type}/${m.api_id}?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES`);
+            
+            if (!res.ok) throw new Error(`Fallo al consultar TMDb para el recurso ${type} con ID ${m.api_id}`);
+            
+            const data = await res.json();
+            const date = data.release_date || data.first_air_date;
+            year = date ? parseInt(date.substring(0, 4)) : 0;
+            title = data.title || data.name;
+            genres = data.genres ? data.genres.map(g => g.name) : [];
+          } catch (e) { 
+            console.error("Error obteniendo datos de TMDB:", e); 
+            Sentry.captureException(e); // Capturamos fallos individuales al hidratar datos desde TMDb
+          }
+
+          return { watchlistRowId: row.id, ...m, year, title, genres };
+        }));
+        setItems(hydratedItems);
+      }
+    } catch (err) {
+      console.error("Error al cargar la watchlist de Supabase:", err);
+      Sentry.captureException(err); // Capturamos fallos de lectura de la base de datos de la lista de seguimiento
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const removeFromWatchlist = async (e, watchlistRowId) => {
     e.stopPropagation();
-    const { error } = await supabase
-      .from('watchlist')
-      .delete()
-      .eq('id', watchlistRowId);
+    try {
+      const { error } = await supabase
+        .from('watchlist')
+        .delete()
+        .eq('id', watchlistRowId);
 
-    if (!error) {
+      if (error) throw error;
+
       setItems(prev => prev.filter(item => item.watchlistRowId !== watchlistRowId));
+    } catch (err) {
+      console.error("Error al eliminar elemento de la watchlist:", err);
+      Sentry.captureException(err); // Capturamos fallos al intentar borrar películas pendientes
     }
   };
 

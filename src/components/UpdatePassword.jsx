@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from "../supabaseClient";
+import * as Sentry from "@sentry/react"; // IMPORTAMOS SENTRY
 
 export default function UpdatePassword() {
   const [password, setPassword] = useState('');
@@ -10,11 +11,19 @@ export default function UpdatePassword() {
   useEffect(() => {
     // Verificamos que haya una sesión activa al cargar el componente
     const checkSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data.session) {
-        setIsReady(true);
-      } else {
-        setMessage('Enlace no válido o expirado.');
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        
+        if (data.session) {
+          setIsReady(true);
+        } else {
+          setMessage('Enlace no válido o expirado.');
+        }
+      } catch (err) {
+        console.error("Error al comprobar la sesión:", err);
+        Sentry.captureException(err); // Capturamos fallos al verificar la sesión de recuperación
+        setMessage('Error al validar el acceso de recuperación.');
       }
     };
     checkSession();
@@ -25,16 +34,23 @@ export default function UpdatePassword() {
     setLoading(true);
     setMessage('');
 
-    const { error } = await supabase.auth.updateUser({
-      password: password
-    });
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: password
+      });
 
-    if (error) {
+      if (error) {
+        throw error;
+      } else {
+        setMessage('Contraseña actualizada correctamente. Ya puedes iniciar sesión.');
+      }
+    } catch (error) {
+      console.error("Error al actualizar la contraseña:", error);
+      Sentry.captureException(error); // Capturamos fallos en la llamada de actualización a Supabase Auth
       setMessage('Error: ' + error.message);
-    } else {
-      setMessage('Contraseña actualizada correctamente. Ya puedes iniciar sesión.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
