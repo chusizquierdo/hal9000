@@ -15,7 +15,7 @@ const PROVIDERS = [
   { id: 119, name: "Prime Video", img: primeLogo },
   { id: 1899, name: "HBO Max", img: hboLogo },
   { id: 1773, name: "SkyShowtime", img: skyLogo },
-  { id: 11, name: "Filmin", img: filminLogo },
+  { id: 63, name: "Filmin", img: filminLogo },
   { id: 350, name: "Apple TV+", img: appleLogo },
 ];
 
@@ -34,10 +34,11 @@ export default function SuggestionsPage({ onViewMovie }) {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   
-  // Estados de diagnóstico para verificar el volumen total de páginas
+  // Estados de control de volumen de páginas
   const [totalPages, setTotalPages] = useState(1);
   const [totalResults, setTotalResults] = useState(0);
 
+  // Filtros de la aplicación
   const [filters, setFilters] = useState({ 
     genre: '', year: '', personId: '', personQuery: '', providers: [], minRating: '6' 
   });
@@ -47,18 +48,10 @@ export default function SuggestionsPage({ onViewMovie }) {
     setPage(1); 
   };
 
-  const toggleProvider = (id) => {
-    const newProviders = filters.providers.includes(id)
-      ? filters.providers.filter(p => p !== id)
-      : [...filters.providers, id];
-    updateFilter({ ...filters, providers: newProviders });
-  };
-
   const fetchMovies = async () => {
     setLoading(true);
     const today = new Date().toISOString().split('T')[0];
     
-    // CAMBIO CLAVE: Forzamos a la API a buscar cualquier tipo de monetización disponible en la plataforma
     let url = `https://api.themoviedb.org/3/discover/movie?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES&sort_by=popularity.desc&vote_count.gte=50&primary_release_date.lte=${today}&watch_region=ES&with_watch_monetization_types=flatrate|rent|buy|free|ads&page=${page}`;
     
     url += `&vote_average.gte=${filters.minRating || 6}`;
@@ -69,8 +62,7 @@ export default function SuggestionsPage({ onViewMovie }) {
     if (filters.providers.length > 0) url += `&with_watch_providers=${filters.providers.join('|')}`;
 
     try {
-      console.log("Petición activa a TMDB (Monetización Total):", url);
-
+      console.log("Petición activa a TMDB:", url);
       const res = await fetch(url);
       const data = await res.json();
       
@@ -78,8 +70,6 @@ export default function SuggestionsPage({ onViewMovie }) {
       setTotalResults(data.total_results || 0);
 
       const filteredResults = (data.results || []).filter(m => (m.release_date || '9999-12-31') <= today);
-      
-      // Conservamos el orden aleatorio visual por página
       setMovies(filteredResults.sort(() => Math.random() - 0.5));
     } catch (err) {
       Sentry.captureException(err);
@@ -110,6 +100,8 @@ export default function SuggestionsPage({ onViewMovie }) {
 
   return (
     <div className="space-y-6 pb-12 px-4">
+      
+      {/* PANEL DE FILTROS TRADICIONAL */}
       <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm space-y-4">
         <div className="flex flex-wrap gap-2">
           <span className="text-xs font-black text-gray-400 uppercase w-full mb-1">Mis plataformas:</span>
@@ -183,7 +175,7 @@ export default function SuggestionsPage({ onViewMovie }) {
       </div>
 
       {loading ? (
-        <div className="text-center py-20 font-bold text-gray-400 animate-pulse">Buscando recommendations...</div>
+        <div className="text-center py-20 font-bold text-gray-400 animate-pulse">Buscando recomendaciones...</div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {movies.map(m => (
