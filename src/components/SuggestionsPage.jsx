@@ -19,25 +19,38 @@ const PROVIDERS = [
   { id: 350, name: "Apple TV+", img: appleLogo },
 ];
 
+const GENRES = [
+  { id: 28, name: "Acción" }, { id: 12, name: "Aventura" }, { id: 16, name: "Animación" },
+  { id: 35, name: "Comedia" }, { id: 80, name: "Crimen" }, { id: 99, name: "Documental" },
+  { id: 18, name: "Drama" }, { id: 10751, name: "Familia" }, { id: 14, name: "Fantasía" },
+  { id: 36, name: "Historia" }, { id: 27, name: "Terror" }, { id: 10402, name: "Música" },
+  { id: 9648, name: "Misterio" }, { id: 10749, name: "Romance" }, { id: 878, name: "Ciencia ficción" },
+  { id: 10770, name: "Película de TV" }, { id: 53, name: "Suspense" }, { id: 10752, name: "Bélica" },
+  { id: 37, name: "Western" }
+];
+
 export default function SuggestionsPage({ onViewMovie }) {
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
-  // He añadido 'minRating' al estado inicial de los filtros (por defecto 6)
+  
+  // Estados de diagnóstico para verificar el volumen total de páginas
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalResults, setTotalResults] = useState(0);
+
   const [filters, setFilters] = useState({ 
     genre: '', year: '', personId: '', personQuery: '', providers: [], minRating: '6' 
   });
 
-  // Función unificada para actualizar filtros y resetear a página 1
   const updateFilter = (newFilters) => {
     setFilters(newFilters);
-    setPage(1); // Imprescindible: Al cambiar cualquier filtro, volvemos a la página 1
+    setPage(1); 
   };
 
   const toggleProvider = (id) => {
     const newProviders = filters.providers.includes(id)
       ? filters.providers.filter(p => p !== id)
-      : [...prev.providers, id];
+      : [...filters.providers, id];
     updateFilter({ ...filters, providers: newProviders });
   };
 
@@ -45,10 +58,9 @@ export default function SuggestionsPage({ onViewMovie }) {
     setLoading(true);
     const today = new Date().toISOString().split('T')[0];
     
-    // Construcción de la URL con el parámetro de nota mínima (minRating)
-    let url = `https://api.themoviedb.org/3/discover/movie?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES&sort_by=popularity.desc&vote_count.gte=250&primary_release_date.lte=${today}&watch_region=ES&with_watch_monetization_types=flatrate&page=${page}`;
+    // CAMBIO CLAVE: Forzamos a la API a buscar cualquier tipo de monetización disponible en la plataforma
+    let url = `https://api.themoviedb.org/3/discover/movie?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES&sort_by=popularity.desc&vote_count.gte=50&primary_release_date.lte=${today}&watch_region=ES&with_watch_monetization_types=flatrate|rent|buy|free|ads&page=${page}`;
     
-    // Añadimos el filtro de nota mínima (por defecto 6, o lo que el usuario elija)
     url += `&vote_average.gte=${filters.minRating || 6}`;
 
     if (filters.genre) url += `&with_genres=${filters.genre}`;
@@ -57,11 +69,17 @@ export default function SuggestionsPage({ onViewMovie }) {
     if (filters.providers.length > 0) url += `&with_watch_providers=${filters.providers.join('|')}`;
 
     try {
+      console.log("Petición activa a TMDB (Monetización Total):", url);
+
       const res = await fetch(url);
       const data = await res.json();
+      
+      setTotalPages(data.total_pages || 1);
+      setTotalResults(data.total_results || 0);
+
       const filteredResults = (data.results || []).filter(m => (m.release_date || '9999-12-31') <= today);
       
-      // Mantenemos el shuffle para la aleatoriedad visual
+      // Conservamos el orden aleatorio visual por página
       setMovies(filteredResults.sort(() => Math.random() - 0.5));
     } catch (err) {
       Sentry.captureException(err);
@@ -70,7 +88,6 @@ export default function SuggestionsPage({ onViewMovie }) {
     }
   };
 
-  // El useEffect se dispara cuando cambia la página o CUALQUIER filtro
   useEffect(() => { 
     fetchMovies(); 
   }, [page, filters.genre, filters.year, filters.personId, filters.providers, filters.minRating]);
@@ -115,7 +132,6 @@ export default function SuggestionsPage({ onViewMovie }) {
           ))}
         </div>
 
-        {/* Fila de filtros modificada para incluir la Nota Media */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <select 
             value={filters.genre} 
@@ -123,8 +139,9 @@ export default function SuggestionsPage({ onViewMovie }) {
             className="p-2 border rounded-xl bg-gray-50 outline-none w-full text-sm"
           >
             <option value="">Todos los géneros</option>
-            <option value="28">Acción</option><option value="35">Comedia</option><option value="18">Drama</option>
-            {/* Puedes añadir más opciones aquí */}
+            {GENRES.map((g) => (
+              <option key={g.id} value={g.id}>{g.name}</option>
+            ))}
           </select>
           
           <input 
@@ -135,10 +152,9 @@ export default function SuggestionsPage({ onViewMovie }) {
             className="p-2 border rounded-xl bg-gray-50 outline-none w-full text-sm" 
           />
 
-          {/* NUEVO FILTRO DE NOTA MÍNIMA */}
           <input 
             type="number" 
-            step="0.1" // Permite decimales (ej: 6.5)
+            step="0.1" 
             min="0" 
             max="10" 
             placeholder="Nota mín (ej: 7.5)" 
@@ -167,7 +183,7 @@ export default function SuggestionsPage({ onViewMovie }) {
       </div>
 
       {loading ? (
-        <div className="text-center py-20 font-bold text-gray-400 animate-pulse">Buscando recomendaciones...</div>
+        <div className="text-center py-20 font-bold text-gray-400 animate-pulse">Buscando recommendations...</div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {movies.map(m => (
@@ -188,9 +204,25 @@ export default function SuggestionsPage({ onViewMovie }) {
       )}
       
       <div className="flex justify-between mt-8 pt-6 border-t border-gray-100">
-        <button disabled={page === 1} onClick={() => setPage(prev => Math.max(1, prev - 1))} className="px-6 py-2 bg-gray-100 rounded-xl font-bold disabled:opacity-50 hover:bg-gray-200 transition-colors">Anterior</button>
-        <span className="font-bold self-center text-gray-600">Página {page}</span>
-        <button onClick={() => setPage(prev => prev + 1)} className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors">Siguiente</button>
+        <button 
+          disabled={page === 1} 
+          onClick={() => setPage(prev => Math.max(1, prev - 1))} 
+          className="px-6 py-2 bg-gray-100 rounded-xl font-bold disabled:opacity-50 hover:bg-gray-200 transition-colors"
+        >
+          Anterior
+        </button>
+        
+        <span className="font-bold self-center text-gray-600 text-sm">
+          Página {page} de {totalPages} ({totalResults} películas encontradas)
+        </span>
+        
+        <button 
+          disabled={page >= totalPages} 
+          onClick={() => setPage(prev => prev + 1)} 
+          className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold disabled:opacity-50 hover:bg-blue-700 transition-colors"
+        >
+          Siguiente
+        </button>
       </div>
     </div>
   );
