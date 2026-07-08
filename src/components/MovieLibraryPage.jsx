@@ -63,7 +63,6 @@ export default function MovieLibraryPage() {
     if (userId) fetchLibrary();
   }, [userId]);
 
-  // --- LÓGICA DE AUTOSCROLL GLOBAL ---
   useEffect(() => {
     const handleGlobalDragOver = (e) => {
       const scrollThreshold = 120; 
@@ -134,7 +133,7 @@ export default function MovieLibraryPage() {
       const updatedList = [data[0], ...libraryRef.current];
       await persistOrder(updatedList);
       setCurrentPage(1);
-      notify('success', `¡"${movieData.title}" añadida al principio!`);
+      notify('success', `¡"${movieData.title}" añadida!`);
     }
   };
 
@@ -216,7 +215,6 @@ export default function MovieLibraryPage() {
     setDraggedIndex(realIndex);
   };
 
-  // Ahora usamos DragEnter en vez de DragOver para evitar colapsos visuales
   const handleItemDragEnter = (e, index) => {
     e.preventDefault();
 
@@ -254,51 +252,61 @@ export default function MovieLibraryPage() {
         />
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-2">
-        <h1 className="text-2xl font-black text-white tracking-tight">
-          Mi Videoteca
-        </h1>
-        <div className="bg-blue-950 border border-cyan-500/30 px-4 py-2 rounded-full flex items-center gap-2 shadow-lg shadow-cyan-950/20">
-          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-          <span className="text-cyan-400 font-bold text-xs uppercase tracking-wider">
-            {libraryRef.current.length} Películas totales
-          </span>
+      {/* HEADER: ESTILO BLU-RAY AUTORING */}
+      <div className="bg-slate-950 border border-blue-900/40 rounded-2xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+        <div className="h-6 bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 flex items-center justify-center text-[9px] font-black tracking-[0.3em] text-white uppercase shadow-inner">
+          ✦ Blu-ray Disc Authoring ✦
+        </div>
+        <div className="p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h2 className="text-lg font-black tracking-wider flex items-center gap-2 uppercase text-cyan-400">
+              💿 Almacén de Colecciones Físicas
+            </h2>
+            <p className="text-xs text-blue-300/60 mt-1">
+              Custodiando <strong className="text-cyan-400 font-mono text-sm">{libraryRef.current.length}</strong> ediciones en total.
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="bg-slate-950 border border-blue-900/50 rounded-2xl p-5 shadow-xl">
-        <form onSubmit={handleSearch} className="flex gap-3">
+      {/* BUSCADOR */}
+      <div className="bg-slate-950 border border-blue-900/40 rounded-2xl p-6 shadow-xl">
+        <form onSubmit={handleSearch} className="flex gap-2">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Busca películas para añadir..."
-            className="flex-1 bg-blue-950/40 border border-blue-800 rounded-xl px-4 py-3 text-xs text-cyan-100"
+            placeholder="Ej. Interstellar, El Caballero Oscuro..."
+            className="flex-1 bg-blue-950/60 border border-blue-800/80 rounded-xl px-4 py-3 text-xs text-cyan-100 placeholder:text-blue-500/70 focus:outline-none focus:border-cyan-400 focus:shadow-[0_0_10px_rgba(6,182,212,0.2)] transition-all font-medium"
           />
-          <button type="submit" className="bg-cyan-600 hover:bg-cyan-500 px-6 py-3 rounded-xl font-bold text-xs uppercase text-white">
+          <button type="submit" className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs py-3 px-6 rounded-xl transition-all uppercase tracking-wider shadow-[0_4px_12px_rgba(6,182,212,0.25)]">
             {loading ? 'Buscando...' : 'Buscar'}
           </button>
         </form>
       </div>
 
+      {/* RESULTADOS */}
       {searchResults.length > 0 && (
-        <div className="bg-slate-950 border border-cyan-500/20 rounded-2xl p-5">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xs font-black uppercase text-cyan-400">Resultados</h3>
-            <button onClick={() => setSearchResults([])} className="text-xs bg-red-900/20 text-red-400 px-3 py-1 rounded-lg">Cerrar</button>
+        <div className="bg-slate-950 border border-cyan-500/20 rounded-2xl p-5 shadow-2xl">
+          <div className="flex justify-between items-center border-b border-blue-900/40 pb-2 mb-4">
+            <h3 className="text-xs font-black uppercase text-cyan-400 tracking-widest">Coincidencias encontradas</h3>
+            <button onClick={() => setSearchResults([])} className="text-[10px] bg-blue-950 hover:bg-blue-900 text-blue-400 px-2.5 py-1 rounded-lg">Cerrar</button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {searchResults.map((m) => {
               const isInLibrary = libraryRef.current.some(lib => lib.api_id === m.id);
               return (
                 <div key={m.id} className="flex items-center gap-3 p-2 bg-blue-950/30 border border-blue-900/30 rounded-xl">
-                  <img src={m.poster_path ? `https://image.tmdb.org/t/p/w92${m.poster_path}` : 'https://via.placeholder.com/92x138'} className="w-10 h-14 object-cover rounded-md" />
-                  <p className="flex-1 text-xs font-bold truncate">{m.title}</p>
+                  <img src={m.poster_path ? `https://image.tmdb.org/t/p/w92${m.poster_path}` : 'https://via.placeholder.com/92x138?text=Sin+Poster'} className="w-10 aspect-[2/3] object-cover rounded-md" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-xs text-white truncate">{m.title}</p>
+                    <p className="text-[10px] text-blue-400/60">{m.release_date?.split('-')[0]}</p>
+                  </div>
                   <button 
                     onClick={() => toggleMovieStatus(m)} 
-                    className={`px-3 py-2 rounded-xl text-[10px] font-bold ${isInLibrary ? 'bg-red-600 hover:bg-red-500' : 'bg-cyan-600 hover:bg-cyan-500'} text-white`}
+                    className={`px-3 py-2 rounded-xl text-[10px] font-bold uppercase ${isInLibrary ? 'bg-red-700' : 'bg-cyan-600'}`}
                   >
-                    {isInLibrary ? '🗑️ Eliminar' : '➕ Añadir'}
+                    {isInLibrary ? '✕ Eliminar' : '➕ Añadir'}
                   </button>
                 </div>
               );
@@ -307,6 +315,7 @@ export default function MovieLibraryPage() {
         </div>
       )}
 
+      {/* REJILLA DE PELÍCULAS */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
         {paginatedLibrary.map((movie, index) => (
           <div 
@@ -314,44 +323,47 @@ export default function MovieLibraryPage() {
             draggable
             onDragStart={(e) => handleDragStart(e, index)}
             onDragEnter={(e) => handleItemDragEnter(e, index)}
-            onDragOver={(e) => e.preventDefault()} // Imprescindible para que el navegador permita soltar (drop)
+            onDragOver={(e) => e.preventDefault()} 
             onDragEnd={handleDragEnd}
             onClick={() => setSelectedMovie(movie)}
-            className="relative bg-slate-950 rounded-xl border border-blue-900/50 overflow-hidden cursor-pointer group"
+            className="relative group bg-slate-950 rounded-xl flex flex-col overflow-hidden border border-blue-900/50 transition-all duration-300 hover:border-cyan-500/50 hover:scale-[1.02]"
           >
-            <div className="aspect-[2/3] relative w-full overflow-hidden">
-              <img src={movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : 'https://via.placeholder.com/500x750'} className="w-full h-full object-cover" />
+            {/* CINTA DE BLU-RAY */}
+            <div className="h-5 bg-gradient-to-b from-blue-500 to-blue-700 flex items-center justify-center text-[7px] font-black uppercase tracking-widest">Blu-ray Disc</div>
+            
+            <div className="aspect-[2/3] relative w-full overflow-hidden flex-1">
+              <img src={movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : 'https://via.placeholder.com/500x750?text=Ficha+Sin+Imagen'} className="w-full h-full object-cover" />
               <button 
                 onClick={(e) => deleteMovie(movie.id, e)}
-                className="absolute top-2 right-2 bg-red-600/80 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                className="absolute top-2 right-2 bg-red-600/90 p-2 rounded-xl text-white opacity-0 group-hover:opacity-100 transition-all"
               >
                 🗑️
               </button>
             </div>
-            <div className="p-2 border-t border-blue-950">
-              <h4 className="font-bold text-[10px] text-cyan-100 truncate">{movie.title}</h4>
+            <div className="p-2.5 bg-slate-950 border-t border-blue-950">
+              <h4 className="font-bold text-xs text-cyan-100 truncate">{movie.title}</h4>
             </div>
           </div>
         ))}
       </div>
 
+      {/* PAGINACIÓN */}
       {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-4 py-8">
+        <div className="flex items-center justify-center gap-2 pt-6 border-t border-blue-950/60">
           <button 
             onClick={() => changePage(currentPage - 1)}
             onDragEnter={(e) => handlePageDragEnter(e, 'prev')}
             onDragLeave={handlePageDragLeave}
-            onDragOver={(e) => e.preventDefault()} 
+            onDragOver={(e) => e.preventDefault()}
             disabled={currentPage === 1}
-            className={`px-4 py-2 text-white rounded-lg disabled:opacity-50 text-xs font-bold uppercase transition-all duration-300
-              ${hoveredPageButton === 'prev' ? 'bg-cyan-600 shadow-[0_0_15px_rgba(34,211,238,0.4)]' : 'bg-blue-900 hover:bg-blue-800'}`}
+            className={`px-3 py-2 bg-slate-950 border border-blue-900/40 rounded-xl text-xs font-bold text-cyan-400 ${hoveredPageButton === 'prev' ? 'bg-cyan-900' : ''}`}
           >
-            Anterior
+            ◀ Ant
           </button>
           
-          <span className="text-cyan-400 font-bold">
-            Página {currentPage} de {totalPages}
-          </span>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+            <button key={n} onClick={() => changePage(n)} className={`w-9 h-9 rounded-xl font-bold text-xs ${currentPage === n ? 'bg-cyan-600 text-white' : 'bg-slate-950 text-blue-400 border border-blue-900/40'}`}>{n}</button>
+          ))}
           
           <button 
             onClick={() => changePage(currentPage + 1)}
@@ -359,10 +371,9 @@ export default function MovieLibraryPage() {
             onDragLeave={handlePageDragLeave}
             onDragOver={(e) => e.preventDefault()}
             disabled={currentPage === totalPages}
-            className={`px-4 py-2 text-white rounded-lg disabled:opacity-50 text-xs font-bold uppercase transition-all duration-300
-              ${hoveredPageButton === 'next' ? 'bg-cyan-600 shadow-[0_0_15px_rgba(34,211,238,0.4)]' : 'bg-blue-900 hover:bg-blue-800'}`}
+            className={`px-3 py-2 bg-slate-950 border border-blue-900/40 rounded-xl text-xs font-bold text-cyan-400 ${hoveredPageButton === 'next' ? 'bg-cyan-900' : ''}`}
           >
-            Siguiente
+            Sig ▶
           </button>
         </div>
       )}
