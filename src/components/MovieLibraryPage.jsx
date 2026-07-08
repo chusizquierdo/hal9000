@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient'; 
 import DetailModal from './DetailModal';
 
 const API_KEY = "8005d659cd2756fbe0a09eaba113b878";
+const ITEMS_PER_PAGE = 30;
 
 export default function MovieLibraryPage() {
   const [userId, setUserId] = useState(null);
@@ -11,8 +12,25 @@ export default function MovieLibraryPage() {
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ type: '', text: '' });
-  const [draggedIndex, setDraggedIndex] = useState(null);
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hoveredPageButton, setHoveredPageButton] = useState(null); 
   const [selectedMovie, setSelectedMovie] = useState(null);
+
+  const [draggedIndexState, setDraggedIndexState] = useState(null);
+  const draggedIndexRef = useRef(null);
+  const libraryRef = useRef([]);
+  const dragTimeoutRef = useRef(null);
+
+  const updateLibraryState = (newLib) => {
+    libraryRef.current = newLib;
+    setLibrary(newLib);
+  };
+
+  const setDraggedIndex = (idx) => {
+    setDraggedIndexState(idx);
+    draggedIndexRef.current = idx;
+  };
 
   useEffect(() => {
     const getUser = async () => {
@@ -37,13 +55,28 @@ export default function MovieLibraryPage() {
     if (error) {
       notify('error', 'Error al cargar tu videoteca.');
     } else {
-      setLibrary(data || []);
+      updateLibraryState(data || []);
     }
   };
 
   useEffect(() => {
     if (userId) fetchLibrary();
   }, [userId]);
+
+  // --- LÓGICA DE AUTOSCROLL GLOBAL ---
+  useEffect(() => {
+    const handleGlobalDragOver = (e) => {
+      const scrollThreshold = 120; 
+      if (e.clientY < scrollThreshold) {
+        window.scrollBy(0, -15);
+      } else if (e.clientY > window.innerHeight - scrollThreshold) {
+        window.scrollBy(0, 15);
+      }
+    };
+
+    window.addEventListener('dragover', handleGlobalDragOver);
+    return () => window.removeEventListener('dragover', handleGlobalDragOver);
+  }, []);
 
   const notify = (type, text) => {
     setStatus({ type, text });
@@ -66,14 +99,20 @@ export default function MovieLibraryPage() {
   };
 
   const persistOrder = async (newLibrary) => {
-    setLibrary(newLibrary);
-    for (let i = 0; i < newLibrary.length; i++) {
-      const movie = newLibrary[i];
-      await supabase
-        .from('videoteca')
-        .update({ display_order: i })
-        .eq('id', movie.id)
-        .eq('user_id', userId);
+    updateLibraryState(newLibrary);
+    
+    const updates = newLibrary.map((movie, index) => ({
+      ...movie,
+      display_order: index
+    }));
+
+    const { error } = await supabase
+      .from('videoteca')
+      .upsert(updates, { onConflict: 'id' });
+
+    if (error) {
+      console.error('Error de Supabase:', error);
+      notify('error', 'Error al guardar el nuevo orden.');
     }
   };
 
@@ -92,8 +131,9 @@ export default function MovieLibraryPage() {
     if (error) {
       notify('error', 'No se pudo guardar.');
     } else {
-      const updatedList = [data[0], ...library];
+      const updatedList = [data[0], ...libraryRef.current];
       await persistOrder(updatedList);
+      setCurrentPage(1);
       notify('success', `¡"${movieData.title}" añadida al principio!`);
     }
   };
@@ -104,14 +144,14 @@ export default function MovieLibraryPage() {
     if (error) {
       notify('error', 'Error al eliminar.');
     } else {
-      const updated = library.filter(m => m.id !== id);
+      const updated = libraryRef.current.filter(m => m.id !== id);
       persistOrder(updated);
       notify('info', 'Película eliminada.');
     }
   };
 
   const toggleMovieStatus = (movieData) => {
-    const isAlreadyInLibrary = library.find(m => m.api_id === movieData.id);
+    const isAlreadyInLibrary = libraryRef.current.find(m => m.api_id === movieData.id);
     if (isAlreadyInLibrary) {
       deleteMovie(isAlreadyInLibrary.id);
     } else {
@@ -119,30 +159,93 @@ export default function MovieLibraryPage() {
     }
   };
 
-  const handleDragStart = (e, index) => {
-    setDraggedIndex(index);
+  const totalPages = Math.ceil(libraryRef.current.length / ITEMS_PER_PAGE);
+  const paginatedLibrary = libraryRef.current.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  const changePage = (newPage) => {
+    setCurrentPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setHoveredPageButton(null);
   };
 
-  const handleDragOver = (e, index) => {
+  const handlePageDragEnter = (e, direction) => {
     e.preventDefault();
-    if (draggedIndex === null || draggedIndex === index) return;
-    const updatedLibrary = [...library];
-    const draggedItem = updatedLibrary[draggedIndex];
-    updatedLibrary.splice(draggedIndex, 1);
-    updatedLibrary.splice(index, 0, draggedItem);
-    setDraggedIndex(index);
-    setLibrary(updatedLibrary);
+    setHoveredPageButton(direction);
+    
+    if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
+    
+    dragTimeoutRef.current = setTimeout(() => {
+      setHoveredPageButton(null);
+      
+      const currentIndex = draggedIndexRef.current;
+      if (currentIndex === null) return;
+
+      let newPage = currentPage;
+      let targetIndex = currentIndex;
+
+      if (direction === 'next' && currentPage < totalPages) {
+        newPage = currentPage + 1;
+        targetIndex = newPage * ITEMS_PER_PAGE - ITEMS_PER_PAGE; 
+      } else if (direction === 'prev' && currentPage > 1) {
+        newPage = currentPage - 1;
+        targetIndex = newPage * ITEMS_PER_PAGE - 1; 
+      }
+
+      if (newPage !== currentPage) {
+        const updated = [...libraryRef.current];
+        const draggedItem = updated[currentIndex];
+        
+        updated.splice(currentIndex, 1);
+        updated.splice(targetIndex, 0, draggedItem);
+        
+        updateLibraryState(updated);
+        setDraggedIndex(targetIndex);
+        changePage(newPage);
+      }
+    }, 1500);
+  };
+
+  const handlePageDragLeave = (e) => {
+    e.preventDefault();
+    setHoveredPageButton(null);
+    if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
+  };
+
+  const handleDragStart = (e, index) => {
+    const realIndex = (currentPage - 1) * ITEMS_PER_PAGE + index;
+    setDraggedIndex(realIndex);
+  };
+
+  // Ahora usamos DragEnter en vez de DragOver para evitar colapsos visuales
+  const handleItemDragEnter = (e, index) => {
+    e.preventDefault();
+
+    const realIndex = (currentPage - 1) * ITEMS_PER_PAGE + index;
+    const currentIndex = draggedIndexRef.current;
+    
+    if (currentIndex === null || currentIndex === realIndex) return;
+    
+    const updatedLibrary = [...libraryRef.current];
+    const draggedItem = updatedLibrary[currentIndex];
+    
+    updatedLibrary.splice(currentIndex, 1);
+    updatedLibrary.splice(realIndex, 0, draggedItem);
+    
+    setDraggedIndex(realIndex);
+    updateLibraryState(updatedLibrary);
   };
 
   const handleDragEnd = () => {
-    if (draggedIndex !== null) {
-      persistOrder(library);
+    if (draggedIndexRef.current !== null) {
+      persistOrder(libraryRef.current);
       setDraggedIndex(null);
     }
+    setHoveredPageButton(null);
+    if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
   };
 
   return (
-    <div className="space-y-6 pb-12 px-4 max-w-7xl mx-auto mt-6 animate-fadeIn text-slate-100">
+    <div className="space-y-6 pb-12 px-4 max-w-7xl mx-auto mt-6 animate-fadeIn text-slate-100 min-h-screen">
       
       {selectedMovie && (
         <DetailModal 
@@ -151,7 +254,6 @@ export default function MovieLibraryPage() {
         />
       )}
 
-      {/* CABECERA CON CONTADOR */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-2">
         <h1 className="text-2xl font-black text-white tracking-tight">
           Mi Videoteca
@@ -159,7 +261,7 @@ export default function MovieLibraryPage() {
         <div className="bg-blue-950 border border-cyan-500/30 px-4 py-2 rounded-full flex items-center gap-2 shadow-lg shadow-cyan-950/20">
           <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
           <span className="text-cyan-400 font-bold text-xs uppercase tracking-wider">
-            {library.length} Películas totales
+            {libraryRef.current.length} Películas totales
           </span>
         </div>
       </div>
@@ -170,7 +272,7 @@ export default function MovieLibraryPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar nueva película..."
+            placeholder="Busca películas para añadir..."
             className="flex-1 bg-blue-950/40 border border-blue-800 rounded-xl px-4 py-3 text-xs text-cyan-100"
           />
           <button type="submit" className="bg-cyan-600 hover:bg-cyan-500 px-6 py-3 rounded-xl font-bold text-xs uppercase text-white">
@@ -187,7 +289,7 @@ export default function MovieLibraryPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {searchResults.map((m) => {
-              const isInLibrary = library.some(lib => lib.api_id === m.id);
+              const isInLibrary = libraryRef.current.some(lib => lib.api_id === m.id);
               return (
                 <div key={m.id} className="flex items-center gap-3 p-2 bg-blue-950/30 border border-blue-900/30 rounded-xl">
                   <img src={m.poster_path ? `https://image.tmdb.org/t/p/w92${m.poster_path}` : 'https://via.placeholder.com/92x138'} className="w-10 h-14 object-cover rounded-md" />
@@ -206,12 +308,13 @@ export default function MovieLibraryPage() {
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
-        {library.map((movie, index) => (
+        {paginatedLibrary.map((movie, index) => (
           <div 
             key={movie.id} 
             draggable
             onDragStart={(e) => handleDragStart(e, index)}
-            onDragOver={(e) => handleDragOver(e, index)}
+            onDragEnter={(e) => handleItemDragEnter(e, index)}
+            onDragOver={(e) => e.preventDefault()} // Imprescindible para que el navegador permita soltar (drop)
             onDragEnd={handleDragEnd}
             onClick={() => setSelectedMovie(movie)}
             className="relative bg-slate-950 rounded-xl border border-blue-900/50 overflow-hidden cursor-pointer group"
@@ -231,6 +334,38 @@ export default function MovieLibraryPage() {
           </div>
         ))}
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-4 py-8">
+          <button 
+            onClick={() => changePage(currentPage - 1)}
+            onDragEnter={(e) => handlePageDragEnter(e, 'prev')}
+            onDragLeave={handlePageDragLeave}
+            onDragOver={(e) => e.preventDefault()} 
+            disabled={currentPage === 1}
+            className={`px-4 py-2 text-white rounded-lg disabled:opacity-50 text-xs font-bold uppercase transition-all duration-300
+              ${hoveredPageButton === 'prev' ? 'bg-cyan-600 shadow-[0_0_15px_rgba(34,211,238,0.4)]' : 'bg-blue-900 hover:bg-blue-800'}`}
+          >
+            Anterior
+          </button>
+          
+          <span className="text-cyan-400 font-bold">
+            Página {currentPage} de {totalPages}
+          </span>
+          
+          <button 
+            onClick={() => changePage(currentPage + 1)}
+            onDragEnter={(e) => handlePageDragEnter(e, 'next')}
+            onDragLeave={handlePageDragLeave}
+            onDragOver={(e) => e.preventDefault()}
+            disabled={currentPage === totalPages}
+            className={`px-4 py-2 text-white rounded-lg disabled:opacity-50 text-xs font-bold uppercase transition-all duration-300
+              ${hoveredPageButton === 'next' ? 'bg-cyan-600 shadow-[0_0_15px_rgba(34,211,238,0.4)]' : 'bg-blue-900 hover:bg-blue-800'}`}
+          >
+            Siguiente
+          </button>
+        </div>
+      )}
     </div>
   );
 }
