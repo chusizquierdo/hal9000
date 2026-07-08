@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
-import * as Sentry from "@sentry/react"; // IMPORTAMOS SENTRY
+import * as Sentry from "@sentry/react";
 import Trailers from './Trailers'; 
 import Upcoming from './Upcoming';
 import Rankings from './Rankings';
@@ -17,6 +17,11 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 12;
 
+  // ✅ AUTO-SCROLL TOP: Se activa cada vez que cambia la página del Feed
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [page]);
+
   useEffect(() => {
     fetchMediaWithData();
   }, [userIdFilter]);
@@ -28,7 +33,7 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
     
     if (error) {
       console.error("Error al cargar datos:", error);
-      Sentry.captureException(error); // Capturamos el fallo de lectura de Supabase
+      Sentry.captureException(error);
     }
     
     if (itemsFromDb) {
@@ -49,7 +54,7 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
           genres = data.genres ? data.genres.map(g => g.name) : [];
         } catch (e) { 
           console.error("Error TMDB"); 
-          Sentry.captureException(e); // Capturamos fallos de conexión o de mapeo con la API de TMDb
+          Sentry.captureException(e);
         }
 
         const sortedReviews = (m.reviews || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -82,13 +87,13 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
       
       if (error) {
         alert("Error al borrar: " + error.message);
-        Sentry.captureException(error); // Capturamos el error si Supabase rechaza el borrado
+        Sentry.captureException(error);
       } else {
         await fetchMediaWithData();
       }
     } catch (catchError) {
       console.error("Error crítico en el borrado:", catchError);
-      Sentry.captureException(catchError); // Capturamos cualquier excepción inesperada en el flujo
+      Sentry.captureException(catchError);
       alert("Ocurrió un error inesperado al intentar borrar el elemento.");
     }
   };

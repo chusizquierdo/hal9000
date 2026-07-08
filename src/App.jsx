@@ -22,6 +22,7 @@ import Wordle from './components/Wordle';
 import SopaLetras from './components/SopaLetras';
 import MatchGame from './components/MatchGame';
 import PollsView from './components/PollsView';
+import MovieLibraryPage from './components/MovieLibraryPage'; // ✅ COMPONENTE DE VIDEOTECA INSTALADO
 
 // INICIALIZACIÓN DE SENTRY EN EL ÁMBITO GLOBAL
 Sentry.init({
@@ -241,6 +242,14 @@ export default function App() {
       setCurrentView('match');
     } else if (tabName === 'polls') {
       setCurrentView('polls');
+    } else if (tabName === 'blu_ray_library') { 
+      // ✅ CANDADO DE ENRUTAMIENTO: Solo permite avanzar a la videoteca si es Administrador
+      if (isAdmin) {
+        setCurrentView('blu_ray_library');
+      } else {
+        setActiveTab('feed');
+        setCurrentView('dashboard');
+      }
     } else {
       setCurrentView('dashboard');
     }
@@ -286,7 +295,7 @@ export default function App() {
                   onClick={() => { navigateTo('create'); setIsDropdownOpen(false); }} 
                   className="inline-flex items-center gap-1 sm:gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-2.5 sm:px-5 py-2 rounded-xl font-bold hover:from-blue-700 hover:to-indigo-700 active:scale-95 transition-all shadow-md hover:shadow-lg text-[11px] sm:text-sm tracking-tight border border-blue-500/10 shrink-0"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5 sm:w-4 sm:h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                  <svg xmlns="http://www.w3.org/2000/xl" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5 sm:w-4 sm:h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                   <span><span className="hidden min-[375px]:inline">Nueva </span>Reseña</span>
                 </button>
               )}
@@ -347,7 +356,8 @@ export default function App() {
             </div>
           </div>
         </nav>
-        <NavbarTabs activeTab={activeTab} onTabChange={handleTabChange} />
+        {/* ✅ PASAMOS LA VARIABLE isAdmin PARA OCULTAR LA PESTAÑA DESDE ADENTRO SI ES NECESARIO */}
+        <NavbarTabs activeTab={activeTab} onTabChange={handleTabChange} isAdmin={isAdmin} />
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -398,6 +408,10 @@ export default function App() {
         )}
         {currentView === 'polls' && (
           <PollsView isAdmin={isAdmin} />
+        )}
+        {/* ✅ RENDERIZADO CONDICIONAL DE LA VIDEOTECA FÍSICA ESTRICTAMENTE PROTEGIDO */}
+        {currentView === 'blu_ray_library' && isAdmin && (
+          <MovieLibraryPage />
         )}
       </main>
 

@@ -1,20 +1,34 @@
 import React, { useState } from 'react';
 
-export default function NavbarTabs({ activeTab, onTabChange }) {
+// ✅ Recibimos la prop isAdmin desde App.jsx
+export default function NavbarTabs({ activeTab, onTabChange, isAdmin }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMobileGamesOpen, setIsMobileGamesOpen] = useState(false);
   const [isDesktopGamesOpen, setIsDesktopGamesOpen] = useState(false);
 
-  const mainTabs = [
+  // Definimos las pestañas base comunes para todos los usuarios
+  const baseTabs = [
     { id: 'feed', label: 'Biblioteca' },
     { id: 'rankings', label: 'Tops' },
     { id: 'leaderboard', label: 'Ranking de Críticos' },
     { id: 'upcoming', label: 'Próximos Estrenos' },
     { id: 'trailers', label: 'Próximos Trailers' },
     { id: 'suggestions', label: '¿Qué ver?' },
-    { id: 'news', label: 'Noticias' },
-    { id: 'polls', label: 'Encuestas' }, // Añadido aquí
   ];
+
+  // ✅ Si es admin, inyectamos la pestaña "Mi Videoteca", si no, agregamos las últimas pestañas públicas
+  const mainTabs = isAdmin 
+    ? [
+        ...baseTabs,
+        { id: 'blu_ray_library', label: 'Mi Videoteca' },
+        { id: 'news', label: 'Noticias' },
+        { id: 'polls', label: 'Encuestas' },
+      ]
+    : [
+        ...baseTabs,
+        { id: 'news', label: 'Noticias' },
+        { id: 'polls', label: 'Encuestas' },
+      ];
 
   const gameTabs = [
     { id: 'quiz', label: 'Quiz' },
@@ -32,13 +46,12 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
   if (foundGame) currentLabel = `Juegos: ${foundGame.label}`;
   if (activeTab === 'contact') currentLabel = 'Contactar Admin';
 
-  // Añadida la validación para 'match'
   const isGameActive = activeTab === 'quiz' || activeTab === 'pixel' || activeTab === 'timeline' || activeTab === 'wordle' || activeTab === 'soup' || activeTab === 'match';
 
   return (
     <div className="max-w-7xl mx-auto px-4 mt-4 relative">
       
-      {/* VISTA MÓVIL: Adaptada para control táctil */}
+      {/* VISTA MÓVIL */}
       <div className="sm:hidden relative w-full z-30">
         <button
           onClick={() => setIsOpen(!isOpen)}
@@ -75,7 +88,6 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
                 </button>
               ))}
 
-              {/* Acordeón Desplegable de Juegos en Móvil */}
               <div className="border-t border-b border-gray-100 my-1">
                 <button
                   onClick={() => setIsMobileGamesOpen(!isMobileGamesOpen)}
@@ -122,7 +134,7 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
         )}
       </div>
 
-      {/* VISTA ESCRITORIO: Efecto Hover y Click Integrado */}
+      {/* VISTA ESCRITORIO */}
       <div className="hidden sm:flex gap-6 border-b border-gray-200 overflow-x-visible pb-0.5 items-center">
         {mainTabs.map((tab) => (
           <button 
@@ -136,7 +148,6 @@ export default function NavbarTabs({ activeTab, onTabChange }) {
           </button>
         ))}
 
-        {/* CONTENEDOR DESPLEGABLE DINÁMICO DE JUEGOS */}
         <div 
           className="relative pb-2"
           onMouseEnter={() => setIsDesktopGamesOpen(true)}

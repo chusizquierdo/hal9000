@@ -34,14 +34,17 @@ export default function SuggestionsPage({ onViewMovie }) {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   
-  // Estados de control de volumen de páginas
   const [totalPages, setTotalPages] = useState(1);
   const [totalResults, setTotalResults] = useState(0);
 
-  // Filtros de la aplicación
   const [filters, setFilters] = useState({ 
     genre: '', year: '', personId: '', personQuery: '', providers: [], minRating: '6' 
   });
+
+  // ✅ AUTO-SCROLL TOP: Se activa cada vez que cambia la página
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [page]);
 
   const updateFilter = (newFilters) => {
     setFilters(newFilters);
