@@ -13,9 +13,10 @@ export default function MovieLibraryPage() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ type: '', text: '' });
 
-  // Control de buscadores y vistas
+  // Control de buscadores, vistas y filtros de formato
   const [localSearchQuery, setLocalSearchQuery] = useState('');
   const [showExternalSearch, setShowExternalSearch] = useState(false);
+  const [activeFormatFilter, setActiveFormatFilter] = useState('all'); // 'all', 'dvd', 'bluray', '4k'
 
   const [currentPage, setCurrentPage] = useState(1);
   const [hoveredPageButton, setHoveredPageButton] = useState(null);
@@ -26,7 +27,7 @@ export default function MovieLibraryPage() {
   const libraryRef = useRef([]);
   const dragTimeoutRef = useRef(null);
 
-  // Contadores para el header incluyendo DVD
+  // Contadores para el header
   const dvdCount = library.filter(m => m.format === 'dvd').length;
   const blurayCount = library.filter(m => m.format === 'bluray').length;
   const fourKCount = library.filter(m => m.format === '4k').length;
@@ -163,10 +164,17 @@ export default function MovieLibraryPage() {
     }
   };
 
-  // Filtrado local en tiempo real por título
-  const filteredLibrary = libraryRef.current.filter(movie =>
-    movie.title.toLowerCase().includes(localSearchQuery.toLowerCase())
-  );
+  const changeFilter = (format) => {
+    setActiveFormatFilter(format);
+    setCurrentPage(1); // Reseteamos siempre a la primera página para evitar desajustes
+  };
+
+  // Filtrado local combinado: Por texto de buscador Y por formato seleccionado en el Header
+  const filteredLibrary = libraryRef.current.filter(movie => {
+    const matchesSearch = movie.title.toLowerCase().includes(localSearchQuery.toLowerCase());
+    const matchesFormat = activeFormatFilter === 'all' || movie.format === activeFormatFilter;
+    return matchesSearch && matchesFormat;
+  });
 
   const totalPages = Math.ceil(filteredLibrary.length / ITEMS_PER_PAGE);
   const paginatedLibrary = filteredLibrary.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -257,7 +265,7 @@ export default function MovieLibraryPage() {
         </div>
       )}
 
-      {/* HEADER CON CONTADORES */}
+      {/* HEADER CON CONTADORES INTERACTIVOS */}
       <div className="bg-slate-950 border border-blue-900/40 rounded-2xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
         <div className="h-6 bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 flex items-center justify-center text-[9px] font-black tracking-[0.3em] text-white uppercase shadow-inner">
           ✦ Videoteca Digital ✦
@@ -268,10 +276,53 @@ export default function MovieLibraryPage() {
               💿 Mi Colección
             </h2>
             <div className="flex flex-wrap gap-2 mt-2">
-              <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-1 rounded-md border border-slate-700">Total: <strong className="text-white">{library.length}</strong></span>
-              <span className="text-[10px] bg-zinc-800 text-zinc-300 px-2 py-1 rounded-md border border-zinc-700">DVD: <strong className="text-white">{dvdCount}</strong></span>
-              <span className="text-[10px] bg-blue-950 text-blue-300 px-2 py-1 rounded-md border border-blue-800">Blu-ray: <strong className="text-white">{blurayCount}</strong></span>
-              <span className="text-[10px] bg-cyan-950 text-cyan-300 px-2 py-1 rounded-md border border-cyan-800">4K: <strong className="text-white">{fourKCount}</strong></span>
+              {/* Botón Total */}
+              <button 
+                onClick={() => changeFilter('all')}
+                className={`text-[10px] px-2.5 py-1 rounded-md border transition-all font-medium uppercase ${
+                  activeFormatFilter === 'all' 
+                    ? 'bg-slate-700 text-white border-slate-400 ring-2 ring-slate-500/50 scale-105 font-bold' 
+                    : 'bg-slate-800/60 text-slate-400 border-slate-700/60 hover:text-slate-200 hover:bg-slate-700'
+                }`}
+              >
+                Total: <strong className="text-white ml-0.5">{library.length}</strong>
+              </button>
+
+              {/* Botón DVD */}
+              <button 
+                onClick={() => changeFilter('dvd')}
+                className={`text-[10px] px-2.5 py-1 rounded-md border transition-all font-medium uppercase ${
+                  activeFormatFilter === 'dvd' 
+                    ? 'bg-zinc-700 text-white border-zinc-400 ring-2 ring-zinc-500/50 scale-105 font-bold' 
+                    : 'bg-zinc-800/40 text-zinc-400 border-zinc-800/60 hover:text-zinc-200 hover:bg-zinc-800'
+                }`}
+              >
+                DVD: <strong className="text-white ml-0.5">{dvdCount}</strong>
+              </button>
+
+              {/* Botón Blu-ray */}
+              <button 
+                onClick={() => changeFilter('bluray')}
+                className={`text-[10px] px-2.5 py-1 rounded-md border transition-all font-medium uppercase ${
+                  activeFormatFilter === 'bluray' 
+                    ? 'bg-blue-900 text-white border-blue-400 ring-2 ring-blue-500/50 scale-105 font-bold' 
+                    : 'bg-blue-950/40 text-blue-400 border-blue-900/40 hover:text-blue-200 hover:bg-blue-950'
+                }`}
+              >
+                Blu-ray: <strong className="text-white ml-0.5">{blurayCount}</strong>
+              </button>
+
+              {/* Botón 4K */}
+              <button 
+                onClick={() => changeFilter('4k')}
+                className={`text-[10px] px-2.5 py-1 rounded-md border transition-all font-medium uppercase ${
+                  activeFormatFilter === '4k' 
+                    ? 'bg-cyan-950 text-cyan-300 border-cyan-400 ring-2 ring-cyan-500/50 scale-105 font-bold' 
+                    : 'bg-cyan-950/20 text-cyan-400 border-cyan-950 hover:text-cyan-200 hover:bg-cyan-950/60'
+                }`}
+              >
+                4K: <strong className="text-white ml-0.5">{fourKCount}</strong>
+              </button>
             </div>
           </div>
           <button 
@@ -283,7 +334,7 @@ export default function MovieLibraryPage() {
         </div>
       </div>
 
-      {/* BUSCADOR DE TMDB (SE DESPLIEGA AL DARLE A AÑADIR PELÍCULA) */}
+      {/* BUSCADOR DE TMDB */}
       {showExternalSearch && (
         <div className="bg-slate-950 border border-cyan-500/30 rounded-2xl p-4 sm:p-6 shadow-2xl relative animate-fadeIn space-y-4">
           <button 
@@ -324,7 +375,6 @@ export default function MovieLibraryPage() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {searchResults.map((m) => {
-                  // Comprobamos si la película ya existe en la videoteca guardada por su api_id
                   const matchedLibraryMovie = library.find(libMovie => String(libMovie.api_id) === String(m.id));
 
                   return (
@@ -337,16 +387,14 @@ export default function MovieLibraryPage() {
                       </div>
                       <div className="flex gap-1 shrink-0 justify-end sm:justify-start">
                         {matchedLibraryMovie ? (
-                          // Si ya está guardada, ocultamos los formatos y mostramos el botón rojo de eliminar
                           <button 
                             onClick={(e) => deleteMovie(matchedLibraryMovie.id, e)} 
-                            className="px-3 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-[10px] font-bold transition-colors flex items-center justify-center shadow-md"
+                            className="px-3 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-[10px] font-bold transition-colors flex items-center justify-center shadow-md animate-fadeIn"
                             title="Eliminar de la videoteca"
                           >
                             🗑️
                           </button>
                         ) : (
-                          // Si no está añadida, se muestran las tres opciones de formato clásico
                           <>
                             <button onClick={() => addMovie(m, 'dvd')} className="px-2 py-2 bg-zinc-600 hover:bg-zinc-500 rounded-lg text-[9px] font-bold text-white uppercase transition-colors">DVD</button>
                             <button onClick={() => addMovie(m, 'bluray')} className="px-2 py-2 bg-blue-700 hover:bg-blue-600 rounded-lg text-[9px] font-bold text-white uppercase transition-colors">BR</button>
@@ -363,11 +411,11 @@ export default function MovieLibraryPage() {
         </div>
       )}
 
-      {/* BUSCADOR FILTRO INTERNO (DESAPARECE SI SE ABRE EL BUSCADOR EXTERNO DE AÑADIR) */}
-      {!showExternalSearch && (
+      {/* BUSCADOR FILTRO INTERNO (SOLO SE MUESTRA SI HAY MÁS DE 1 PELÍCULA EN LA VIDEOTECA) */}
+      {!showExternalSearch && library.length > 1 && (
         <div className="bg-slate-950 border border-blue-900/40 rounded-2xl p-6 shadow-xl space-y-2 animate-fadeIn">
           <label className="text-xs font-black uppercase text-cyan-400 tracking-widest block">
-            Filtrar mi Videoteca
+            {activeFormatFilter === 'all' ? 'Filtrar mi Videoteca' : `Filtrar tus películas en ${activeFormatFilter.toUpperCase()}`}
           </label>
           <input
             type="text"
@@ -383,50 +431,56 @@ export default function MovieLibraryPage() {
       )}
 
       {/* REJILLA DE PELÍCULAS */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:grid-cols-3 sm:gap-6">
-        {paginatedLibrary.map((movie, index) => {
-          let labelClasses = "bg-gradient-to-b from-blue-500 to-blue-700 text-white";
-          let labelText = "Blu-ray Disc";
-          
-          if (movie.format === '4k') {
-            labelClasses = "bg-black text-white border-b border-zinc-900";
-            labelText = "4K ULTRA HD";
-          } else if (movie.format === 'dvd') {
-            labelClasses = "bg-gradient-to-b from-zinc-500 via-zinc-600 to-zinc-700 text-zinc-100 tracking-wider font-semibold";
-            labelText = "DVD VIDEO";
-          }
+      {paginatedLibrary.length > 0 ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-6">
+          {paginatedLibrary.map((movie, index) => {
+            let labelClasses = "bg-gradient-to-b from-blue-500 to-blue-700 text-white";
+            let labelText = "Blu-ray Disc";
+            
+            if (movie.format === '4k') {
+              labelClasses = "bg-black text-white border-b border-zinc-900";
+              labelText = "4K ULTRA HD";
+            } else if (movie.format === 'dvd') {
+              labelClasses = "bg-gradient-to-b from-zinc-500 via-zinc-600 to-zinc-700 text-zinc-100 tracking-wider font-semibold";
+              labelText = "DVD VIDEO";
+            }
 
-          return (
-            <div 
-              key={movie.id} 
-              draggable
-              onDragStart={(e) => handleDragStart(e, index)}
-              onDragEnter={(e) => handleItemDragEnter(e, index)}
-              onDragOver={(e) => e.preventDefault()} 
-              onDragEnd={handleDragEnd}
-              onClick={() => setSelectedMovie(movie)}
-              className="relative group bg-slate-950 rounded-xl flex flex-col overflow-hidden border border-blue-900/50 transition-all duration-300 hover:border-cyan-500/50 hover:scale-[1.02]"
-            >
-              <div className={`h-5 flex items-center justify-center text-[7px] font-black uppercase tracking-widest ${labelClasses}`}>
-                {labelText}
+            return (
+              <div 
+                key={movie.id} 
+                draggable
+                onDragStart={(e) => handleDragStart(e, index)}
+                onDragEnter={(e) => handleItemDragEnter(e, index)}
+                onDragOver={(e) => e.preventDefault()} 
+                onDragEnd={handleDragEnd}
+                onClick={() => setSelectedMovie(movie)}
+                className="relative group bg-slate-950 rounded-xl flex flex-col overflow-hidden border border-blue-900/50 transition-all duration-300 hover:border-cyan-500/50 hover:scale-[1.02]"
+              >
+                <div className={`h-5 flex items-center justify-center text-[7px] font-black uppercase tracking-widest ${labelClasses}`}>
+                  {labelText}
+                </div>
+                
+                <div className="aspect-[2/3] relative w-full overflow-hidden flex-1">
+                  <img src={movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : 'https://via.placeholder.com/500x750?text=Ficha+Sin+Imagen'} className="w-full h-full object-cover" loading="lazy" />
+                  <button 
+                    onClick={(e) => deleteMovie(movie.id, e)}
+                    className="absolute top-2 right-2 bg-red-600/90 p-2 rounded-xl text-white opacity-0 group-hover:opacity-100 transition-all shadow-md z-10"
+                  >
+                    🗑️
+                  </button>
+                </div>
+                <div className="p-2.5 bg-slate-950 border-t border-blue-950">
+                  <h4 className="font-bold text-xs text-cyan-100 truncate">{movie.title}</h4>
+                </div>
               </div>
-              
-              <div className="aspect-[2/3] relative w-full overflow-hidden flex-1">
-                <img src={movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : 'https://via.placeholder.com/500x750?text=Ficha+Sin+Imagen'} className="w-full h-full object-cover" />
-                <button 
-                  onClick={(e) => deleteMovie(movie.id, e)}
-                  className="absolute top-2 right-2 bg-red-600/90 p-2 rounded-xl text-white opacity-0 group-hover:opacity-100 transition-all shadow-md z-10"
-                >
-                  🗑️
-                </button>
-              </div>
-              <div className="p-2.5 bg-slate-950 border-t border-blue-950">
-                <h4 className="font-bold text-xs text-cyan-100 truncate">{movie.title}</h4>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="text-center py-12 text-slate-500 border border-dashed border-blue-900/30 rounded-2xl bg-slate-950/20">
+          No hay películas que coincidan con los filtros aplicados.
+        </div>
+      )}
 
       {/* PAGINACIÓN */}
       {totalPages > 1 && (
