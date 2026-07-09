@@ -27,6 +27,11 @@ export default function MovieLibraryPage() {
   const libraryRef = useRef([]);
   const dragTimeoutRef = useRef(null);
 
+  // Control de arrastre táctil en móviles
+  const touchTimeoutRef = useRef(null);
+  const isTouchDraggingRef = useRef(false);
+  const [isTouchDragging, setIsTouchDragging] = useState(false);
+
   // Contadores para el header
   const dvdCount = library.filter(m => m.format === 'dvd').length;
   const blurayCount = library.filter(m => m.format === 'bluray').length;
@@ -52,6 +57,11 @@ export default function MovieLibraryPage() {
       }
     };
     getUser();
+
+    return () => {
+      document.body.style.overflow = '';
+      if (touchTimeoutRef.current) clearTimeout(touchTimeoutRef.current);
+    };
   }, []);
 
   const fetchLibrary = async () => {
@@ -220,6 +230,7 @@ export default function MovieLibraryPage() {
     if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
   };
 
+  // Lógica Drag & Drop Computadora (Ratón)
   const handleDragStart = (e, index) => {
     const targetItem = paginatedLibrary[index];
     const realIndex = libraryRef.current.findIndex(m => m.id === targetItem.id);
@@ -247,6 +258,71 @@ export default function MovieLibraryPage() {
     }
     setHoveredPageButton(null);
     if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
+  };
+
+  // Lógica Drag & Drop Móvil (Táctil con Pulsación Larga)
+  const handleTouchStart = (e, index) => {
+    if (e.target.closest('button')) return; // Ignorar si pulsa el botón de borrar
+
+    const targetItem = paginatedLibrary[index];
+    const realIndex = libraryRef.current.findIndex(m => m.id === targetItem.id);
+    
+    if (touchTimeoutRef.current) clearTimeout(touchTimeoutRef.current);
+    
+    // Iniciar temporizador de 400ms para activar el arrastre táctil
+    touchTimeoutRef.current = setTimeout(() => {
+      setDraggedIndex(realIndex);
+      isTouchDraggingRef.current = true;
+      setIsTouchDragging(true);
+      document.body.style.overflow = 'hidden'; // Bloquear scroll de la página
+      if (navigator.vibrate) navigator.vibrate(50); // Feedback háptico
+    }, 400);
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isTouchDraggingRef.current) {
+      // Si se mueve rápido antes de los 400ms, significa que está haciendo scroll normal
+      clearTimeout(touchTimeoutRef.current);
+      return;
+    }
+
+    const touch = e.touches[0];
+    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (!element) return;
+
+    const card = element.closest('[data-index]');
+    if (!card) return;
+
+    const targetIndex = parseInt(card.getAttribute('data-index'), 10);
+    const targetItem = paginatedLibrary[targetIndex];
+    if (!targetItem) return;
+
+    const realTargetIndex = libraryRef.current.findIndex(m => m.id === targetItem.id);
+    const currentIndex = draggedIndexRef.current;
+
+    if (currentIndex !== null && currentIndex !== realTargetIndex) {
+      const updatedLibrary = [...libraryRef.current];
+      const draggedItem = updatedLibrary[currentIndex];
+      updatedLibrary.splice(currentIndex, 1);
+      updatedLibrary.splice(realTargetIndex, 0, draggedItem);
+      setDraggedIndex(realTargetIndex);
+      updateLibraryState(updatedLibrary);
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    clearTimeout(touchTimeoutRef.current);
+    if (isTouchDraggingRef.current) {
+      persistOrder(libraryRef.current);
+      setDraggedIndex(null);
+      isTouchDraggingRef.current = false;
+      setIsTouchDragging(false);
+      document.body.style.overflow = ''; // Restaurar el scroll normal
+      
+      // Evitar que el toque abra la ficha de detalles al soltar el arrastre
+      e.preventDefault();
+      e.stopPropagation();
+    }
   };
 
   return (
@@ -380,7 +456,7 @@ export default function MovieLibraryPage() {
                   return (
                     <div key={m.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-blue-950/30 border border-blue-900/30 rounded-xl">
                       <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <img src={m.poster_path ? `https://image.tmdb.org/t/p/w92${m.poster_path}` : 'https://via.placeholder.com/92x138?text=Sin+Poster'} className="w-10 aspect-[2/3] object-cover rounded-md flex-shrink-0" />
+                        <img src={m.poster_path ? `https://image.tmdb.org/t/p/w92${m.poster_path}` : 'https://via.placeholder.com/92x138?text=Sin+Poster'} className="w-10 aspect-[2/3] object-cover rounded-md flex-shrink-0 pointer-events-none select-none" draggable="false" />
                         <div className="min-w-0 flex-1">
                           <p className="font-bold text-xs text-white truncate">{m.title}</p>
                         </div>
@@ -445,31 +521,50 @@ export default function MovieLibraryPage() {
               labelText = "DVD VIDEO";
             }
 
+            const isCurrentlyDragged = draggedIndexState === libraryRef.current.findIndex(m => m.id === movie.id);
+
             return (
               <div 
                 key={movie.id} 
+                data-index={index}
                 draggable
                 onDragStart={(e) => handleDragStart(e, index)}
                 onDragEnter={(e) => handleItemDragEnter(e, index)}
                 onDragOver={(e) => e.preventDefault()} 
                 onDragEnd={handleDragEnd}
-                onClick={() => setSelectedMovie(movie)}
-                className="relative group bg-slate-950 rounded-xl flex flex-col overflow-hidden border border-blue-900/50 transition-all duration-300 hover:border-cyan-500/50 hover:scale-[1.02]"
+                onTouchStart={(e) => handleTouchStart(e, index)}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onClick={() => {
+                  if (!isTouchDraggingRef.current) {
+                    setSelectedMovie(movie);
+                  }
+                }}
+                className={`relative group bg-slate-950 rounded-xl flex flex-col overflow-hidden border transition-all duration-300 hover:border-cyan-500/50 touch-none ${
+                  isCurrentlyDragged 
+                    ? 'opacity-40 border-cyan-500 scale-95 shadow-[0_0_15px_rgba(34,211,238,0.3)]' 
+                    : 'border-blue-900/50 hover:scale-[1.02]'
+                }`}
               >
-                <div className={`h-5 flex items-center justify-center text-[7px] font-black uppercase tracking-widest ${labelClasses}`}>
+                <div className={`h-5 flex items-center justify-center text-[7px] font-black uppercase tracking-widest pointer-events-none select-none ${labelClasses}`}>
                   {labelText}
                 </div>
                 
-                <div className="aspect-[2/3] relative w-full overflow-hidden flex-1">
-                  <img src={movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : 'https://via.placeholder.com/500x750?text=Ficha+Sin+Imagen'} className="w-full h-full object-cover" loading="lazy" />
+                <div className="aspect-[2/3] relative w-full overflow-hidden flex-1 pointer-events-none">
+                  <img 
+                    src={movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : 'https://via.placeholder.com/500x750?text=Ficha+Sin+Imagen'} 
+                    className="w-full h-full object-cover pointer-events-none select-none" 
+                    loading="lazy" 
+                    draggable="false"
+                  />
                   <button 
                     onClick={(e) => deleteMovie(movie.id, e)}
-                    className="absolute top-2 right-2 bg-red-600/90 p-2 rounded-xl text-white opacity-0 group-hover:opacity-100 transition-all shadow-md z-10"
+                    className="absolute top-2 right-2 bg-red-600/90 p-2 rounded-xl text-white opacity-0 group-hover:opacity-100 transition-all shadow-md z-10 pointer-events-auto"
                   >
                     🗑️
                   </button>
                 </div>
-                <div className="p-2.5 bg-slate-950 border-t border-blue-950">
+                <div className="p-2.5 bg-slate-950 border-t border-blue-950 pointer-events-none select-none">
                   <h4 className="font-bold text-xs text-cyan-100 truncate">{movie.title}</h4>
                 </div>
               </div>
