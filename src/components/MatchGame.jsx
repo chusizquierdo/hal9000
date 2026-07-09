@@ -102,13 +102,22 @@ export default function MatchGame({ onBack }) {
             );
             const creditsData = await creditsResponse.json();
             
-            const validMovies = (creditsData.cast || [])
-              .filter(m => m.poster_path && m.title)
+            // FILTRO DE PROTAGONISTAS: Validamos que tenga poster, título y que el actor esté entre los 4 primeros roles (order <= 3)
+            let validMovies = (creditsData.cast || [])
+              .filter(m => m.poster_path && m.title && typeof m.order === 'number' && m.order <= 3)
               .sort((a, b) => b.popularity - a.popularity);
 
+            // FALLBACK: Si por alguna anomalía de la API el actor no tiene pelis filtradas, 
+            // usamos sus películas populares generales para que el juego no se rompa con este actor
+            if (validMovies.length === 0) {
+               validMovies = (creditsData.cast || [])
+                 .filter(m => m.poster_path && m.title)
+                 .sort((a, b) => b.popularity - a.popularity);
+            }
+
             if (validMovies.length > 0) {
-              // Seleccionamos una película al azar de entre las 15 más populares
-              const maxRange = Math.min(validMovies.length, 15);
+              // Seleccionamos una película al azar de entre las 10 más populares donde es protagonista
+              const maxRange = Math.min(validMovies.length, 10);
               const chosenMovie = validMovies[Math.floor(Math.random() * maxRange)];
               
               movieTitle = chosenMovie.title;
