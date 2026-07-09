@@ -27,8 +27,9 @@ export default function MovieLibraryPage() {
   const libraryRef = useRef([]);
   const dragTimeoutRef = useRef(null);
 
-  // Control de arrastre táctil en móviles
+  // Control de arrastre táctil en móviles y tolerancia a micro-movimientos
   const touchTimeoutRef = useRef(null);
+  const touchStartPosRef = useRef({ x: 0, y: 0 });
   const isTouchDraggingRef = useRef(false);
   const [isTouchDragging, setIsTouchDragging] = useState(false);
 
@@ -210,7 +211,7 @@ export default function MovieLibraryPage() {
         targetIndex = newPage * ITEMS_PER_PAGE - ITEMS_PER_PAGE;
       } else if (direction === 'prev' && currentPage > 1) {
         newPage = currentPage - 1;
-        targetIndex = newPage * ITEMS_PER_PAGE - 1;
+        targetIndex = nexPage * ITEMS_PER_PAGE - 1;
       }
       if (newPage !== currentPage) {
         const updated = [...libraryRef.current];
@@ -260,7 +261,7 @@ export default function MovieLibraryPage() {
     if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
   };
 
-  // Lógica Drag & Drop Móvil (Táctil con Pulsación Larga)
+  // Lógica Drag & Drop Móvil (Táctil con Tolerancia a Micro-movimientos)
   const handleTouchStart = (e, index) => {
     if (e.target.closest('button')) return; // Ignorar si pulsa el botón de borrar
 
@@ -269,24 +270,38 @@ export default function MovieLibraryPage() {
     
     if (touchTimeoutRef.current) clearTimeout(touchTimeoutRef.current);
     
+    // Almacenamos la posición inicial exacta del toque
+    const touch = e.touches[0];
+    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+    
     // Iniciar temporizador de 400ms para activar el arrastre táctil
     touchTimeoutRef.current = setTimeout(() => {
       setDraggedIndex(realIndex);
       isTouchDraggingRef.current = true;
       setIsTouchDragging(true);
-      document.body.style.overflow = 'hidden'; // Bloquear scroll de la página
-      if (navigator.vibrate) navigator.vibrate(50); // Feedback háptico
+      document.body.style.overflow = 'hidden'; // Bloquear scroll de la página global
+      if (navigator.vibrate) navigator.vibrate(50); // Feedback háptico (pequeña vibración)
     }, 400);
   };
 
   const handleTouchMove = (e) => {
+    const touch = e.touches[0];
+
     if (!isTouchDraggingRef.current) {
-      // Si se mueve rápido antes de los 400ms, significa que está haciendo scroll normal
-      clearTimeout(touchTimeoutRef.current);
+      // Si el usuario aún no está en modo "arrastre", calculamos la distancia movida
+      const deltaX = Math.abs(touch.clientX - touchStartPosRef.current.x);
+      const deltaY = Math.abs(touch.clientY - touchStartPosRef.current.y);
+      
+      // Si mueve más de 10 píxeles antes de los 400ms, asumimos que quiere hacer scroll normal y cancelamos
+      if (deltaX > 10 || deltaY > 10) {
+        clearTimeout(touchTimeoutRef.current);
+      }
       return;
     }
 
-    const touch = e.touches[0];
+    // Si ya está en modo arrastre activo, cancelamos cualquier comportamiento nativo del navegador
+    if (e.cancelable) e.preventDefault();
+
     const element = document.elementFromPoint(touch.clientX, touch.clientY);
     if (!element) return;
 
@@ -317,9 +332,9 @@ export default function MovieLibraryPage() {
       setDraggedIndex(null);
       isTouchDraggingRef.current = false;
       setIsTouchDragging(false);
-      document.body.style.overflow = ''; // Restaurar el scroll normal
+      document.body.style.overflow = ''; // Restaurar el scroll normal de la web
       
-      // Evitar que el toque abra la ficha de detalles al soltar el arrastre
+      // Evitar eventos fantasma como abrir detalles al soltar la tarjeta
       e.preventDefault();
       e.stopPropagation();
     }
@@ -352,7 +367,6 @@ export default function MovieLibraryPage() {
               💿 Mi Colección
             </h2>
             <div className="flex flex-wrap gap-2 mt-2">
-              {/* Botón Total */}
               <button 
                 onClick={() => changeFilter('all')}
                 className={`text-[10px] px-2.5 py-1 rounded-md border transition-all font-medium uppercase ${
@@ -364,7 +378,6 @@ export default function MovieLibraryPage() {
                 Total: <strong className="text-white ml-0.5">{library.length}</strong>
               </button>
 
-              {/* Botón DVD */}
               <button 
                 onClick={() => changeFilter('dvd')}
                 className={`text-[10px] px-2.5 py-1 rounded-md border transition-all font-medium uppercase ${
@@ -376,7 +389,6 @@ export default function MovieLibraryPage() {
                 DVD: <strong className="text-white ml-0.5">{dvdCount}</strong>
               </button>
 
-              {/* Botón Blu-ray */}
               <button 
                 onClick={() => changeFilter('bluray')}
                 className={`text-[10px] px-2.5 py-1 rounded-md border transition-all font-medium uppercase ${
@@ -388,7 +400,6 @@ export default function MovieLibraryPage() {
                 Blu-ray: <strong className="text-white ml-0.5">{blurayCount}</strong>
               </button>
 
-              {/* Botón 4K */}
               <button 
                 onClick={() => changeFilter('4k')}
                 className={`text-[10px] px-2.5 py-1 rounded-md border transition-all font-medium uppercase ${
@@ -487,7 +498,7 @@ export default function MovieLibraryPage() {
         </div>
       )}
 
-      {/* BUSCADOR FILTRO INTERNO (SOLO SE MUESTRA SI HAY MÁS DE 1 PELÍCULA EN LA VIDEOTECA) */}
+      {/* BUSCADOR FILTRO INTERNO */}
       {!showExternalSearch && library.length > 1 && (
         <div className="bg-slate-950 border border-blue-900/40 rounded-2xl p-6 shadow-xl space-y-2 animate-fadeIn">
           <label className="text-xs font-black uppercase text-cyan-400 tracking-widest block">
@@ -535,6 +546,7 @@ export default function MovieLibraryPage() {
                 onTouchStart={(e) => handleTouchStart(e, index)}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
+                onContextMenu={(e) => e.preventDefault()} // Desactiva la lupa táctil de selección e imágenes de iOS y Android
                 onClick={() => {
                   if (!isTouchDraggingRef.current) {
                     setSelectedMovie(movie);
@@ -546,8 +558,7 @@ export default function MovieLibraryPage() {
                     : 'border-blue-900/50 hover:scale-[1.02]'
                 }`}
               >
-                <div className="h-5 flex items-center justify-center text-[7px] font-black uppercase tracking-widest pointer-events-none select-none backdrop-blur-sm z-10 overscroll-none text-center px-1 truncate w-full shadow-md">
-                  <span className={`absolute inset-0 -z-10 ${labelClasses}`} />
+                <div className={`h-5 flex items-center justify-center text-[7px] font-black uppercase tracking-widest pointer-events-none select-none text-center px-1 truncate w-full shadow-md ${labelClasses}`}>
                   {labelText}
                 </div>
                 
@@ -558,8 +569,6 @@ export default function MovieLibraryPage() {
                     loading="lazy" 
                     draggable="false"
                   />
-                  {/* Escudo invisible protector anti-selección y Live Text para iOS */}
-                  <div className="absolute inset-0 bg-transparent z-10 select-none pointer-events-none [-webkit-touch-callout:none]" />
                   
                   <button 
                     onClick={(e) => deleteMovie(movie.id, e)}
