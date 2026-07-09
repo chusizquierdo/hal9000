@@ -359,7 +359,7 @@ export default function MovieLibraryPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Escribe el título de la película a buscar..."
-              className="flex-1 bg-blue-950/60 border border-blue-800/80 rounded-xl px-4 py-3 text-xs text-cyan-100 placeholder:text-blue-500/70 focus:outline-none focus:border-cyan-400 transition-all font-medium"
+              className="flex-1 bg-blue-950/60 border border-blue-800/80 rounded-xl px-4 py-3 text-base sm:text-xs text-cyan-100 placeholder:text-blue-500/70 focus:outline-none focus:border-cyan-400 transition-all font-medium"
             />
             <button type="submit" className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs py-3 px-6 rounded-xl transition-all uppercase tracking-wider whitespace-nowrap">
               {loading ? 'Buscando...' : 'Buscar'}
@@ -425,7 +425,7 @@ export default function MovieLibraryPage() {
               setCurrentPage(1);
             }}
             placeholder="Escribe para buscar dentro de tus películas guardadas..."
-            className="w-full bg-blue-950/60 border border-blue-800/80 rounded-xl px-4 py-3 text-xs text-cyan-100 placeholder:text-blue-500/70 focus:outline-none focus:border-cyan-400 transition-all font-medium"
+            className="w-full bg-blue-950/60 border border-blue-800/80 rounded-xl px-4 py-3 text-base sm:text-xs text-cyan-100 placeholder:text-blue-500/70 focus:outline-none focus:border-cyan-400 transition-all font-medium"
           />
         </div>
       )}
