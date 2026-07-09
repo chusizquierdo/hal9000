@@ -540,26 +540,30 @@ export default function MovieLibraryPage() {
                     setSelectedMovie(movie);
                   }
                 }}
-                className={`relative group bg-slate-950 rounded-xl flex flex-col overflow-hidden border transition-all duration-300 hover:border-cyan-500/50 touch-none ${
+                className={`relative group bg-slate-950 rounded-xl flex flex-col overflow-hidden border transition-all duration-300 hover:border-cyan-500/50 touch-none select-none [-webkit-touch-callout:none] ${
                   isCurrentlyDragged 
                     ? 'opacity-40 border-cyan-500 scale-95 shadow-[0_0_15px_rgba(34,211,238,0.3)]' 
                     : 'border-blue-900/50 hover:scale-[1.02]'
                 }`}
               >
-                <div className={`h-5 flex items-center justify-center text-[7px] font-black uppercase tracking-widest pointer-events-none select-none ${labelClasses}`}>
+                <div className="h-5 flex items-center justify-center text-[7px] font-black uppercase tracking-widest pointer-events-none select-none backdrop-blur-sm z-10 overscroll-none text-center px-1 truncate w-full shadow-md">
+                  <span className={`absolute inset-0 -z-10 ${labelClasses}`} />
                   {labelText}
                 </div>
                 
-                <div className="aspect-[2/3] relative w-full overflow-hidden flex-1 pointer-events-none">
+                <div className="aspect-[2/3] relative w-full overflow-hidden flex-1 pointer-events-none select-none">
                   <img 
                     src={movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : 'https://via.placeholder.com/500x750?text=Ficha+Sin+Imagen'} 
                     className="w-full h-full object-cover pointer-events-none select-none" 
                     loading="lazy" 
                     draggable="false"
                   />
+                  {/* Escudo invisible protector anti-selección y Live Text para iOS */}
+                  <div className="absolute inset-0 bg-transparent z-10 select-none pointer-events-none [-webkit-touch-callout:none]" />
+                  
                   <button 
                     onClick={(e) => deleteMovie(movie.id, e)}
-                    className="absolute top-2 right-2 bg-red-600/90 p-2 rounded-xl text-white opacity-0 group-hover:opacity-100 transition-all shadow-md z-10 pointer-events-auto"
+                    className="absolute top-2 right-2 bg-red-600/90 p-2 rounded-xl text-white opacity-0 group-hover:opacity-100 transition-all shadow-md z-20 pointer-events-auto"
                   >
                     🗑️
                   </button>
