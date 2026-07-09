@@ -177,10 +177,9 @@ export default function MovieLibraryPage() {
 
   const changeFilter = (format) => {
     setActiveFormatFilter(format);
-    setCurrentPage(1); // Reseteamos siempre a la primera página para evitar desajustes
+    setCurrentPage(1);
   };
 
-  // Filtrado local combinado: Por texto de buscador Y por formato seleccionado en el Header
   const filteredLibrary = libraryRef.current.filter(movie => {
     const matchesSearch = movie.title.toLowerCase().includes(localSearchQuery.toLowerCase());
     const matchesFormat = activeFormatFilter === 'all' || movie.format === activeFormatFilter;
@@ -211,7 +210,7 @@ export default function MovieLibraryPage() {
         targetIndex = newPage * ITEMS_PER_PAGE - ITEMS_PER_PAGE;
       } else if (direction === 'prev' && currentPage > 1) {
         newPage = currentPage - 1;
-        targetIndex = nexPage * ITEMS_PER_PAGE - 1;
+        targetIndex = newPage * ITEMS_PER_PAGE - 1;
       }
       if (newPage !== currentPage) {
         const updated = [...libraryRef.current];
@@ -261,26 +260,24 @@ export default function MovieLibraryPage() {
     if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
   };
 
-  // Lógica Drag & Drop Móvil (Táctil con Tolerancia a Micro-movimientos)
+  // Lógica Drag & Drop Móvil (Táctil Premium con Toque Largo)
   const handleTouchStart = (e, index) => {
-    if (e.target.closest('button')) return; // Ignorar si pulsa el botón de borrar
+    if (e.target.closest('button')) return;
 
     const targetItem = paginatedLibrary[index];
     const realIndex = libraryRef.current.findIndex(m => m.id === targetItem.id);
     
     if (touchTimeoutRef.current) clearTimeout(touchTimeoutRef.current);
     
-    // Almacenamos la posición inicial exacta del toque
     const touch = e.touches[0];
     touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
     
-    // Iniciar temporizador de 400ms para activar el arrastre táctil
     touchTimeoutRef.current = setTimeout(() => {
       setDraggedIndex(realIndex);
       isTouchDraggingRef.current = true;
       setIsTouchDragging(true);
-      document.body.style.overflow = 'hidden'; // Bloquear scroll de la página global
-      if (navigator.vibrate) navigator.vibrate(50); // Feedback háptico (pequeña vibración)
+      document.body.style.overflow = 'hidden'; 
+      if (navigator.vibrate) navigator.vibrate(50); // Feedback háptico al activarse
     }, 400);
   };
 
@@ -288,18 +285,14 @@ export default function MovieLibraryPage() {
     const touch = e.touches[0];
 
     if (!isTouchDraggingRef.current) {
-      // Si el usuario aún no está en modo "arrastre", calculamos la distancia movida
       const deltaX = Math.abs(touch.clientX - touchStartPosRef.current.x);
       const deltaY = Math.abs(touch.clientY - touchStartPosRef.current.y);
-      
-      // Si mueve más de 10 píxeles antes de los 400ms, asumimos que quiere hacer scroll normal y cancelamos
       if (deltaX > 10 || deltaY > 10) {
         clearTimeout(touchTimeoutRef.current);
       }
       return;
     }
 
-    // Si ya está en modo arrastre activo, cancelamos cualquier comportamiento nativo del navegador
     if (e.cancelable) e.preventDefault();
 
     const element = document.elementFromPoint(touch.clientX, touch.clientY);
@@ -332,9 +325,8 @@ export default function MovieLibraryPage() {
       setDraggedIndex(null);
       isTouchDraggingRef.current = false;
       setIsTouchDragging(false);
-      document.body.style.overflow = ''; // Restaurar el scroll normal de la web
+      document.body.style.overflow = '';
       
-      // Evitar eventos fantasma como abrir detalles al soltar la tarjeta
       e.preventDefault();
       e.stopPropagation();
     }
@@ -342,6 +334,18 @@ export default function MovieLibraryPage() {
 
   return (
     <div className="space-y-6 pb-12 px-4 max-w-7xl mx-auto mt-6 animate-fadeIn text-slate-100 min-h-screen">
+      {/* INYECCIÓN DE ANIMACIÓN CSS NATIVA PARA EL DESTELLO BLANCO EN MÓVIL */}
+      <style>{`
+        @keyframes customWhiteFlash {
+          0% { opacity: 0; }
+          40% { opacity: 0.6; }
+          100% { opacity: 0; }
+        }
+        .animate-flash-glow {
+          animation: customWhiteFlash 0.35s ease-out forwards;
+        }
+      `}</style>
+
       {selectedMovie && (
         <DetailModal movie={selectedMovie} onClose={() => setSelectedMovie(null)} />
       )}
@@ -534,6 +538,18 @@ export default function MovieLibraryPage() {
 
             const isCurrentlyDragged = draggedIndexState === libraryRef.current.findIndex(m => m.id === movie.id);
 
+            // Bifurcamos dinámicamente las clases CSS dependiendo de si es arrastre táctil (móvil) o nativo (PC)
+            let dragStyles = "border-blue-900/50 hover:scale-[1.02]";
+            if (isCurrentlyDragged) {
+              if (isTouchDragging) {
+                // Estilo PREMIUM para MÓVIL (Brillo blanco, agrandado y flotando)
+                dragStyles = "scale-105 border-white ring-2 ring-white shadow-[0_0_20px_rgba(255,255,255,0.7)] z-50 pointer-events-none";
+              } else {
+                // Estilo TRADICIONAL para PC (Opaco y encogido, perfecto para ratón)
+                dragStyles = "opacity-40 border-cyan-500 scale-95 shadow-[0_0_15px_rgba(34,211,238,0.3)]";
+              }
+            }
+
             return (
               <div 
                 key={movie.id} 
@@ -546,18 +562,19 @@ export default function MovieLibraryPage() {
                 onTouchStart={(e) => handleTouchStart(e, index)}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
-                onContextMenu={(e) => e.preventDefault()} // Desactiva la lupa táctil de selección e imágenes de iOS y Android
+                onContextMenu={(e) => e.preventDefault()} 
                 onClick={() => {
                   if (!isTouchDraggingRef.current) {
                     setSelectedMovie(movie);
                   }
                 }}
-                className={`relative group bg-slate-950 rounded-xl flex flex-col overflow-hidden border transition-all duration-300 hover:border-cyan-500/50 touch-none select-none [-webkit-touch-callout:none] ${
-                  isCurrentlyDragged 
-                    ? 'opacity-40 border-cyan-500 scale-95 shadow-[0_0_15px_rgba(34,211,238,0.3)]' 
-                    : 'border-blue-900/50 hover:scale-[1.02]'
-                }`}
+                className={`relative group bg-slate-950 rounded-xl flex flex-col overflow-hidden border transition-all duration-300 hover:border-cyan-500/50 touch-none select-none [-webkit-touch-callout:none] ${dragStyles}`}
               >
+                {/* Capa de destello blanco instantáneo - SOLO SE ACTIVA EN ARRASTRE MÓVIL */}
+                {isCurrentlyDragged && isTouchDragging && (
+                  <div className="absolute inset-0 bg-white pointer-events-none animate-flash-glow z-50 mix-blend-screen" />
+                )}
+
                 <div className={`h-5 flex items-center justify-center text-[7px] font-black uppercase tracking-widest pointer-events-none select-none text-center px-1 truncate w-full shadow-md ${labelClasses}`}>
                   {labelText}
                 </div>
