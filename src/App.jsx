@@ -46,10 +46,23 @@ Sentry.init({
 export default function App() {
   const [session, setSession] = useState(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [currentView, setCurrentView] = useState('dashboard');
-  const [navigationStack, setNavigationStack] = useState([]);
-  const [activeTab, setActiveTab] = useState('feed');
-  const [selectedMediaId, setSelectedMediaId] = useState(null);
+  
+  // 🔄 ESTADOS MODIFICADOS PARA LEER DE LOCALSTORAGE AL RECARGAR
+  const [currentView, setCurrentView] = useState(() => {
+    return localStorage.getItem('hal9000_current_view') || 'dashboard';
+  });
+  const [navigationStack, setNavigationStack] = useState(() => {
+    const savedStack = localStorage.getItem('hal9000_nav_stack');
+    return savedStack ? JSON.parse(savedStack) : [];
+  });
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('hal9000_active_tab') || 'feed';
+  });
+  const [selectedMediaId, setSelectedMediaId] = useState(() => {
+    const savedId = localStorage.getItem('hal9000_selected_media_id');
+    return savedId ? JSON.parse(savedId) : null;
+  });
+
   const [refreshKey, setRefreshKey] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
@@ -57,6 +70,27 @@ export default function App() {
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [suggestionCount, setSuggestionCount] = useState(0);
+
+  // 💾 EFECTOS AUTOMÁTICOS PARA GUARDAR EN LOCALSTORAGE CUANDO CAMBIAN LOS ESTADOS
+  useEffect(() => {
+    localStorage.setItem('hal9000_current_view', currentView);
+  }, [currentView]);
+
+  useEffect(() => {
+    localStorage.setItem('hal9000_nav_stack', JSON.stringify(navigationStack));
+  }, [navigationStack]);
+
+  useEffect(() => {
+    localStorage.setItem('hal9000_active_tab', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (selectedMediaId !== null) {
+      localStorage.setItem('hal9000_selected_media_id', JSON.stringify(selectedMediaId));
+    } else {
+      localStorage.removeItem('hal9000_selected_media_id');
+    }
+  }, [selectedMediaId]);
 
   const navigateTo = (view, params = {}) => {
     setNavigationStack(prev => [...prev, { view: currentView, tab: activeTab, mediaId: selectedMediaId }]);
