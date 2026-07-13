@@ -49,6 +49,23 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
       .replace(/\[spoiler\](.*?)\[\/spoiler\]/g, '<span class="spoiler-blur" onclick="this.classList.add(\'revealed\')">$1</span>');
     return <span dangerouslySetInnerHTML={{ __html: formatted }} />;
   };
+
+  // Formateador de fecha y hora amigable
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      return '';
+    }
+  };
   // ----------------------------------
 
   useEffect(() => {
@@ -206,8 +223,12 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
     }
   };
 
-  const handleDeleteUserReview = async (reviewId) => {
-    const confirmed = window.confirm("⚠️ ACCIÓN DE ADMINISTRADOR:\n\n¿Seguro que quieres eliminar esta reseña de forma permanente?");
+  const handleDeleteUserReview = async (reviewId, isAdminAction = false) => {
+    const message = isAdminAction 
+      ? "⚠️ ACCIÓN DE ADMINISTRADOR:\n\n¿Seguro que quieres eliminar esta reseña de forma permanente?"
+      : "¿Seguro que quieres eliminar tu reseña de forma permanente?";
+
+    const confirmed = window.confirm(message);
     if (!confirmed) return;
 
     const { error } = await supabase
@@ -218,6 +239,9 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
     if (error) {
       alert("Error al borrar la reseña");
     } else {
+      if (!isAdminAction) {
+        setIsEditing(false);
+      }
       fetchData(); 
     }
   };
@@ -263,9 +287,24 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
     if (!dbItemId) return;
 
     if (userReview) {
-      await supabase.from('reviews').update({ comment, rating: parseFloat(rating) }).eq('id', userReview.id);
+      await supabase
+        .from('reviews')
+        .update({ 
+          comment, 
+          rating: parseFloat(rating),
+          created_at: new Date().toISOString()
+        })
+        .eq('id', userReview.id);
     } else {
-      await supabase.from('reviews').insert({ user_id: currentUser.id, media_id: dbItemId, comment, rating: parseFloat(rating) });
+      await supabase
+        .from('reviews')
+        .insert({ 
+          user_id: currentUser.id, 
+          media_id: dbItemId, 
+          comment, 
+          rating: parseFloat(rating),
+          created_at: new Date().toISOString()
+        });
     }
     setIsEditing(false); fetchData();
   };
@@ -324,7 +363,6 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
       <button onClick={onBack} className="text-blue-600 mb-6 font-bold hover:underline inline-flex items-center gap-1">← Volver</button>
       
       <div className="flex gap-6 md:gap-8 flex-col md:flex-row">
-        {/* CORRECCIÓN: Contenedor elástico para el póster principal */}
         {movieData.poster_path ? (
           <img 
             src={`https://image.tmdb.org/t/p/w300${movieData.poster_path}`} 
@@ -511,9 +549,16 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
             <h3 className="font-bold text-lg mb-4">{userReview && !isEditing ? 'Tu reseña' : 'Escribe tu reseña'}</h3>
             {userReview && !isEditing ? (
               <div>
-                <p className="text-yellow-500 font-black text-xl">{userReview.rating} ★</p>
+                {/* Visualización de la puntuación y fecha de la propia reseña */}
+                <div className="flex items-center gap-3">
+                  <p className="text-yellow-500 font-black text-xl">{userReview.rating} ★</p>
+                  <span className="text-xs text-gray-400 font-medium">{formatDate(userReview.created_at)}</span>
+                </div>
                 <div className="italic mt-2 text-gray-700 text-sm sm:text-base">{renderFormattedComment(userReview.comment)}</div>
-                <button onClick={() => setIsEditing(true)} className="text-blue-600 mt-3 font-bold text-sm underline hover:text-blue-700">Editar mi reseña</button>
+                <div className="flex items-center gap-4 mt-4">
+                  <button onClick={() => setIsEditing(true)} className="text-blue-600 font-bold text-sm underline hover:text-blue-700">Editar mi reseña</button>
+                  <button onClick={() => handleDeleteUserReview(userReview.id, false)} className="text-red-600 font-bold text-sm underline hover:text-red-700">Eliminar mi reseña</button>
+                </div>
               </div>
             ) : (
               <div className="flex flex-col gap-4">
@@ -523,7 +568,6 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
                     <button type="button" onClick={() => applyFormat('spoiler')} className="px-3 py-1 bg-gray-100 rounded text-xs hover:bg-gray-200">Spoiler</button>
                 </div>
                 
-                {/* CORRECCIÓN: Ajuste de altura mínima, filas y tamaño de tipografía responsiva */}
                 <textarea 
                   id="review-textarea" 
                   className="w-full min-h-[160px] sm:min-h-[180px] p-4 border border-gray-200 rounded-xl resize-none outline-none focus:border-blue-500 bg-white text-base sm:text-sm leading-relaxed" 
@@ -531,16 +575,15 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
                   value={comment} 
                   onChange={e => setComment(e.target.value)} 
                   rows={5}
-                />
+                ></textarea>
                 
                 <div>
                   <label className="font-bold text-sm block mb-2 text-gray-600">Tu puntuación: <span className="text-blue-600 font-black">{rating.toFixed(1)} / 10</span></label>
-                  {/* CORRECCIÓN: Evitamos roturas de línea incómodas en las estrellas en móviles */}
                   <div className="flex flex-wrap gap-0.5 sm:gap-1 text-xl sm:text-2xl select-none">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((star) => (
                       <div key={star} className="relative flex">
-                        <button type="button" onClick={() => setRating(star - 0.5)} className="absolute left-0 top-0 z-10 h-full w-1/2 opacity-0 cursor-pointer"/>
-                        <button type="button" onClick={() => setRating(star)} className="absolute right-0 top-0 z-10 h-full w-1/2 opacity-0 cursor-pointer"/>
+                        <button type="button" onClick={() => setRating(star - 0.5)} className="absolute left-0 top-0 z-10 h-full w-1/2 opacity-0 cursor-pointer"></button>
+                        <button type="button" onClick={() => setRating(star)} className="absolute right-0 top-0 z-10 h-full w-1/2 opacity-0 cursor-pointer"></button>
                         <span className={rating >= star ? 'text-yellow-400' : rating === star - 0.5 ? 'text-yellow-400/50' : 'text-gray-200'}>★</span>
                       </div>
                     ))}
@@ -565,7 +608,11 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
             return (
               <div key={r.id} className="border-b border-gray-100 pb-4 flex justify-between items-start gap-4">
                 <div className="flex-grow">
-                  <p className="font-bold text-gray-900 text-sm">{r.profiles?.username || 'Usuario anónimo'}</p>
+                  {/* Visualización del autor y la fecha al lado */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-bold text-gray-900 text-sm">{r.profiles?.username || 'Usuario anónimo'}</p>
+                    <span className="text-[11px] text-gray-400 font-medium">• {formatDate(r.created_at)}</span>
+                  </div>
                   <p className="text-yellow-500 font-bold text-sm mt-0.5">{r.rating} ★</p>
                   <div className="text-gray-600 text-sm mt-1">{renderFormattedComment(r.comment)}</div>
                   
@@ -590,7 +637,7 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
                 
                 {isAdmin && (
                   <button 
-                    onClick={() => handleDeleteUserReview(r.id)}
+                    onClick={() => handleDeleteUserReview(r.id, true)}
                     className="text-xs bg-red-50 text-red-600 border border-red-200 px-2.5 py-1 rounded-xl font-bold hover:bg-red-600 hover:text-white transition-all tracking-tight shrink-0 shadow-sm"
                     title="Borrar comentario inapropiado"
                   >

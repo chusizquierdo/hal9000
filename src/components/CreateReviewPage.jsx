@@ -137,7 +137,7 @@ export default function CreateReviewPage({ onReviewCreated }) {
       const recData = await recRes.json();
       setRecommendations(recData.results?.slice(0, 8) || []);
     } catch (e) { 
-      console.error("❌ Error al obtener recomendaciones:", e);
+      console.error("❌ Error al obtener recommendations:", e);
       setRecommendations([]); 
       Sentry.captureException(e); // Enviar error de recomendaciones a Sentry
     }
@@ -291,12 +291,16 @@ export default function CreateReviewPage({ onReviewCreated }) {
 
       const parsedRating = parseFloat(rating);
 
-      // 5. Insertar o actualizar reseña final
+      // 5. Insertar o actualizar reseña final (Añadido created_at)
       if (existing) {
           if (window.confirm("¿Sustituir tu reseña anterior existente para este título?")) {
             const { error: updateError } = await supabase
               .from('reviews')
-              .update({ comment, rating: parsedRating })
+              .update({ 
+                comment, 
+                rating: parsedRating,
+                created_at: new Date().toISOString() // Setea fecha y hora actual al actualizar
+              })
               .eq('id', existing.id);
             
             if (updateError) {
@@ -310,7 +314,13 @@ export default function CreateReviewPage({ onReviewCreated }) {
       } else {
           const { error: insertError } = await supabase
             .from('reviews')
-            .insert({ user_id: user.id, media_id: media.id, comment, rating: parsedRating });
+            .insert({ 
+              user_id: user.id, 
+              media_id: media.id, 
+              comment, 
+              rating: parsedRating,
+              created_at: new Date().toISOString() // Setea fecha y hora actual al crear
+            });
           
           if (insertError) {
             console.error("❌ Error al insertar la nueva reseña:", insertError);

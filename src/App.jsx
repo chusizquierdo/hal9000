@@ -14,7 +14,7 @@ import UpdatePassword from './components/UpdatePassword';
 import AdminUserPanel from './components/AdminUserPanel';
 import UserLeaderboard from './components/UserLeaderboard';
 import NavbarTabs from './components/NavbarTabs';
-import ContactAdminPage from './components/ContactAdminPage'; 
+import ContactAdminPage from './components/ContactAdminPage';
 import QuizGame from './components/QuizGame';
 import PixelGame from './components/PixelGame';
 import TimelineGame from './components/TimelineGame';
@@ -36,7 +36,7 @@ Sentry.init({
     Sentry.browserTracingIntegration(),
     Sentry.replayIntegration()
   ],
-  tracesSampleRate: 1.0, 
+  tracesSampleRate: 1.0,
   tracePropagationTargets: ["localhost", /^https:\/\/yourserver\.io\/api/],
   replaysSessionSampleRate: 0.1,
   replaysOnErrorSampleRate: 1.0,
@@ -48,13 +48,13 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [currentView, setCurrentView] = useState('dashboard');
   const [navigationStack, setNavigationStack] = useState([]);
-  const [activeTab, setActiveTab] = useState('feed'); 
+  const [activeTab, setActiveTab] = useState('feed');
   const [selectedMediaId, setSelectedMediaId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
   const [profile, setProfile] = useState({ username: 'Usuario', avatar_url: '' });
-  
+
   const [isAdmin, setIsAdmin] = useState(false);
   const [suggestionCount, setSuggestionCount] = useState(0);
 
@@ -117,7 +117,7 @@ export default function App() {
 
   const fetchUserProfile = async () => {
     if (!session?.user) return;
-    
+
     const { data } = await supabase
       .from('profiles')
       .select('username, avatar_url, role')
@@ -225,7 +225,7 @@ export default function App() {
     setActiveTab(tabName);
     setSelectedMediaId(null);
     setNavigationStack([]);
-    
+
     if (tabName === 'contact') {
       setCurrentView('contact');
     } else if (tabName === 'quiz') {
@@ -234,7 +234,7 @@ export default function App() {
       setCurrentView('pixel');
     } else if (tabName === 'timeline') {
       setCurrentView('timeline');
-    } else if (tabName === 'wordle') { 
+    } else if (tabName === 'wordle') {
       setCurrentView('wordle');
     } else if (tabName === 'soup') {
       setCurrentView('soup');
@@ -242,7 +242,7 @@ export default function App() {
       setCurrentView('match');
     } else if (tabName === 'polls') {
       setCurrentView('polls');
-    } else if (tabName === 'blu_ray_library') { 
+    } else if (tabName === 'blu_ray_library') {
       // ✅ CANDADO DE ENRUTAMIENTO: Solo permite avanzar a la videoteca si es Administrador
       if (isAdmin) {
         setCurrentView('blu_ray_library');
@@ -264,9 +264,9 @@ export default function App() {
       <header className="sticky top-0 z-50 bg-white shadow-sm border-b border-gray-100">
         <nav className="bg-white">
           <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 flex justify-between items-center gap-2">
-            
+
             <div className="relative group flex items-center shrink-0">
-              <h1 
+              <h1
                 className="text-lg sm:text-2xl font-black text-gray-900 tracking-tighter hover:text-blue-600 transition-colors flex items-center gap-2 sm:gap-4 cursor-pointer"
                 onClick={() => {
                   navigateToDashboard();
@@ -277,8 +277,8 @@ export default function App() {
                 <span>HAL<span className="text-blue-600">9000</span></span>
                 {isAdmin && <span className="hidden xs:inline-block sm:inline text-[9px] sm:text-[10px] bg-red-100 text-red-600 font-extrabold px-1.5 py-0.5 rounded-md uppercase tracking-wide">Admin</span>}
               </h1>
-              
-              <div 
+
+              <div
                 className={`absolute top-12 left-0 w-80 sm:w-96 max-w-[calc(100vw-2rem)] p-5 sm:p-6 bg-gray-900 text-white text-sm sm:text-base font-medium leading-relaxed rounded-xl shadow-2xl transition-all duration-300 z-[60] ${isTooltipOpen ? 'opacity-100 visible' : 'opacity-0 invisible md:group-hover:opacity-100 md:group-hover:visible'} pointer-events-auto`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -291,8 +291,8 @@ export default function App() {
 
             <div className="flex gap-2 sm:gap-4 items-center shrink-0">
               {session && !session.isGuest && (
-                <button 
-                  onClick={() => { navigateTo('create'); setIsDropdownOpen(false); }} 
+                <button
+                  onClick={() => { navigateTo('create'); setIsDropdownOpen(false); }}
                   className="inline-flex items-center gap-1 sm:gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-2.5 sm:px-5 py-2 rounded-xl font-bold hover:from-blue-700 hover:to-indigo-700 active:scale-95 transition-all shadow-md hover:shadow-lg text-[11px] sm:text-sm tracking-tight border border-blue-500/10 shrink-0"
                 >
                   <svg xmlns="http://www.w3.org/2000/xl" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5 sm:w-4 sm:h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
@@ -324,7 +324,7 @@ export default function App() {
                             <button onClick={navigateToSettings} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-bold flex items-center gap-2 transition-colors mt-1">⚙️ Configurar Perfil</button>
                             <button onClick={navigateToMyReviews} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors">📂 Mis reseñas (Biblioteca)</button>
                             <button onClick={navigateToWatchlist} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors">⏳ Películas pendientes</button>
-                            
+
                             {isAdmin && (
                               <button onClick={navigateToAdminPanel} className="w-full text-left px-4 py-2.5 text-sm text-purple-600 hover:bg-purple-50 font-black flex items-center justify-between transition-colors border-t border-gray-100 pt-2">
                                 <span className="flex items-center gap-2">👑 Panel de Admin</span>
@@ -335,7 +335,7 @@ export default function App() {
                                 )}
                               </button>
                             )}
-                            
+
                             <div className="border-t border-gray-100 mt-2 pt-1.5"><button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-bold flex items-center gap-2 transition-colors">🚪 Cerrar sesión</button></div>
                           </>
                         ) : (
@@ -346,8 +346,8 @@ export default function App() {
                   )}
                 </div>
               ) : (
-                <button 
-                  onClick={() => setShowAuthModal(true)} 
+                <button
+                  onClick={() => setShowAuthModal(true)}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-md hover:shadow-lg active:scale-95 shrink-0"
                 >
                   Iniciar Sesión
