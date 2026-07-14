@@ -111,7 +111,7 @@ export default function NavbarTabs({ activeTab, onTabChange, isAdmin }) {
         )}
       </div>
 
-      {/* VISTA ESCRITORIO (Ahora permite salto de línea automático) */}
+      {/* VISTA ESCRITORIO */}
       <div className="hidden md:flex flex-wrap gap-x-6 gap-y-2 border-b border-gray-200 pb-2 items-center">
         {mainTabs.map((tab) => (
           <button 
@@ -125,6 +125,7 @@ export default function NavbarTabs({ activeTab, onTabChange, isAdmin }) {
           </button>
         ))}
 
+        {/* CONTENEDOR RELATIVO PARA EL DESPLEGABLE */}
         <div 
           className="relative"
           onMouseEnter={() => setIsDesktopGamesOpen(true)}
@@ -142,24 +143,32 @@ export default function NavbarTabs({ activeTab, onTabChange, isAdmin }) {
             </svg>
           </button>
 
+          {/* 
+            SOLUCIÓN DEL PUENTE DE HOVER:
+            - Usamos top-full (pega el contenedor transparente al botón, sin huecos).
+            - Usamos pt-2 para crear el espacio visual de separación.
+            - El fondo blanco, los bordes y sombras se aplican al contenedor hijo.
+          */}
           {isDesktopGamesOpen && (
-            <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 z-50 animate-fade-in">
-              {gameTabs.map((subTab) => (
-                <button
-                  key={subTab.id}
-                  onClick={() => { onTabChange(subTab.id); setIsDesktopGamesOpen(false); }}
-                  className={`w-full text-left px-4 py-2.5 text-sm font-bold transition-colors ${
-                    activeTab === subTab.id ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  {subTab.id === 'quiz' ? '🏆 Trivial Quiz' : 
-                   subTab.id === 'pixel' ? '🎬 Pixelado' : 
-                   subTab.id === 'timeline' ? '⏱️ Cronología' : 
-                   subTab.id === 'wordle' ? '🧩 Wordle' : 
-                   subTab.id === 'soup' ? '🔤 Sopa de Letras' : 
-                   '🔗 CineMatch'}
-                </button>
-              ))}
+            <div className="absolute left-0 top-full pt-2 w-48 z-50 animate-fade-in">
+              <div className="bg-white border border-gray-200 rounded-xl shadow-lg py-1.5">
+                {gameTabs.map((subTab) => (
+                  <button
+                    key={subTab.id}
+                    onClick={() => { onTabChange(subTab.id); setIsDesktopGamesOpen(false); }}
+                    className={`w-full text-left px-4 py-2.5 text-sm font-bold transition-colors ${
+                      activeTab === subTab.id ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    }`}
+                  >
+                    {subTab.id === 'quiz' ? '🏆 Trivial Quiz' : 
+                     subTab.id === 'pixel' ? '🎬 Pixelado' : 
+                     subTab.id === 'timeline' ? '⏱️ Cronología' : 
+                     subTab.id === 'wordle' ? '🧩 Wordle' : 
+                     subTab.id === 'soup' ? '🔤 Sopa de Letras' : 
+                     '🔗 CineMatch'}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>

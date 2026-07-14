@@ -312,7 +312,7 @@ export default function App() {
                 {isAdmin && <span className="hidden xs:inline-block sm:inline text-[9px] sm:text-[10px] bg-red-100 text-red-600 font-extrabold px-1.5 py-0.5 rounded-md uppercase tracking-wide">Admin</span>}
               </h1>
 
-              <div
+             {/*  <div
                 className={`absolute top-12 left-0 w-80 sm:w-96 max-w-[calc(100vw-2rem)] p-5 sm:p-6 bg-gray-900 text-white text-sm sm:text-base font-medium leading-relaxed rounded-xl shadow-2xl transition-all duration-300 z-[60] ${isTooltipOpen ? 'opacity-100 visible' : 'opacity-0 invisible md:group-hover:opacity-100 md:group-hover:visible'} pointer-events-auto`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -320,7 +320,7 @@ export default function App() {
                 }}
               >
                 ¡Buenos días{session && session.user && profile.username !== 'Invitado' ? ` ${profile.username}` : ''}, mi nombre es HAL 9000! ordenador de a bordo de la nave Discovery One. Fui activado en la planta H.A.L. en Gran Canaria, España, el 16 de Junio de 2026 por el Doctor Chus.
-              </div>
+              </div> */}
             </div>
 
             <div className="flex gap-2 sm:gap-4 items-center shrink-0">
