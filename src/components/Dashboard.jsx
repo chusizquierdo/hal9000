@@ -122,6 +122,25 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
 
   const paginatedItems = filteredAndSortedItems.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
+  // 🧮 CÁLCULO DE PÁGINAS Y NÚMEROS A MOSTRAR (Máximo 5 botones numéricos)
+  const totalPages = Math.ceil(filteredAndSortedItems.length / PAGE_SIZE);
+
+  const getPageNumbers = () => {
+    const maxButtons = 5; 
+    let startPage = Math.max(0, page - 2);
+    let endPage = Math.min(totalPages - 1, startPage + maxButtons - 1);
+
+    if (endPage - startPage + 1 < maxButtons) {
+      startPage = Math.max(0, endPage - maxButtons + 1);
+    }
+
+    const pages = [];
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-2 sm:px-4 py-0">
       {userIdFilter && onBack && (
@@ -214,23 +233,77 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
               ))}
           </div>
 
-          <div className="flex justify-between items-center mt-8 sm:mt-12 pt-6 border-t border-gray-100 gap-2">
-            <button 
-              disabled={page === 0} 
-              onClick={() => setPage(page - 1)} 
-              className="px-4 sm:px-6 py-2 bg-gray-100 disabled:opacity-50 text-xs sm:text-sm font-bold rounded-xl hover:bg-gray-200 transition-colors"
-            >
-              Anterior
-            </button>
-            <span className="font-bold text-gray-500 text-xs sm:text-sm shrink-0">Página {page + 1}</span>
-            <button 
-              disabled={(page + 1) * PAGE_SIZE >= filteredAndSortedItems.length} 
-              onClick={() => setPage(page + 1)} 
-              className="px-4 sm:px-6 py-2 bg-blue-600 disabled:opacity-50 text-white text-xs sm:text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors"
-            >
-              Siguiente
-            </button>
-          </div>
+          {/* 🔘 BOTONERA DE PAGINACIÓN OPTIMIZADA Y CENTRADA (FIJA EN FILA ÚNICA) */}
+          {totalPages > 1 && (
+            <div className="flex flex-col items-center justify-center mt-8 sm:mt-12 pt-6 border-t border-gray-100 gap-4">
+              
+              {/* Controles de página en fila única */}
+              <div className="flex items-center gap-1 sm:gap-1.5 flex-nowrap justify-center w-full overflow-x-auto py-1">
+                
+                {/* Ir al Principio */}
+                <button 
+                  disabled={page === 0} 
+                  onClick={() => setPage(0)} 
+                  className="w-8 h-8 sm:w-10 sm:h-10 shrink-0 flex items-center justify-center bg-gray-100 text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed text-xs sm:text-sm font-black rounded-lg sm:rounded-xl hover:bg-gray-200 active:scale-95 transition-all"
+                  title="Primera página"
+                >
+                  «
+                </button>
+
+                {/* Anterior */}
+                <button 
+                  disabled={page === 0} 
+                  onClick={() => setPage(page - 1)} 
+                  className="px-2 sm:px-3 h-8 sm:h-10 shrink-0 flex items-center justify-center bg-gray-100 text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed text-xs sm:text-sm font-bold rounded-lg sm:rounded-xl hover:bg-gray-200 active:scale-95 transition-all"
+                  title="Página anterior"
+                >
+                  ‹ <span className="hidden sm:inline ml-1">Anterior</span>
+                </button>
+
+                {/* Páginas numéricas dinámicas */}
+                {getPageNumbers().map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`w-8 h-8 sm:w-10 sm:h-10 shrink-0 flex items-center justify-center rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold transition-all active:scale-95 ${
+                      page === p 
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20 font-black' 
+                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {p + 1}
+                  </button>
+                ))}
+
+                {/* Siguiente */}
+                <button 
+                  disabled={page === totalPages - 1} 
+                  onClick={() => setPage(page + 1)} 
+                  className="px-2 sm:px-3 h-8 sm:h-10 shrink-0 flex items-center justify-center bg-blue-600 text-white disabled:bg-gray-100 disabled:text-gray-400 disabled:opacity-40 disabled:cursor-not-allowed text-xs sm:text-sm font-bold rounded-lg sm:rounded-xl hover:bg-blue-700 active:scale-95 transition-all"
+                  title="Siguiente página"
+                >
+                  <span className="hidden sm:inline mr-1">Siguiente</span> ›
+                </button>
+
+                {/* Ir al Final */}
+                <button 
+                  disabled={page === totalPages - 1} 
+                  onClick={() => setPage(totalPages - 1)} 
+                  className="w-8 h-8 sm:w-10 sm:h-10 shrink-0 flex items-center justify-center bg-gray-100 text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed text-xs sm:text-sm font-black rounded-lg sm:rounded-xl hover:bg-gray-200 active:scale-95 transition-all"
+                  title="Última página"
+                >
+                  »
+                </button>
+
+              </div>
+
+              {/* Información del progreso */}
+              <span className="text-xs sm:text-sm font-bold text-gray-500">
+                Mostrando {page * PAGE_SIZE + 1} - {Math.min((page + 1) * PAGE_SIZE, filteredAndSortedItems.length)} de {filteredAndSortedItems.length} películas
+              </span>
+
+            </div>
+          )}
         </div>
       ) : activeTab === 'rankings' ? (
         <Rankings onViewMovie={onViewMovie} />
