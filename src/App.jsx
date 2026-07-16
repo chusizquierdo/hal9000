@@ -8,7 +8,7 @@ import CreateReviewPage from './components/CreateReviewPage';
 import Watchlist from './components/Watchlist';
 import ProfileSettings from './components/ProfileSettings';
 import Auth from './components/Auth';
-import UpdatePassword from './components/UpdatePassword';
+import UpdatePassword from '././components/UpdatePassword';
 
 // NUEVOS COMPONENTES IMPORTADOS
 import AdminUserPanel from './components/AdminUserPanel';
@@ -277,13 +277,8 @@ export default function App() {
     } else if (tabName === 'polls') {
       setCurrentView('polls');
     } else if (tabName === 'blu_ray_library') {
-      // ✅ CANDADO DE ENRUTAMIENTO: Solo permite avanzar a la videoteca si es Administrador
-      if (isAdmin) {
-        setCurrentView('blu_ray_library');
-      } else {
-        setActiveTab('feed');
-        setCurrentView('dashboard');
-      }
+      // ✅ SE HA ELIMINADO EL CANDADO DE ENRUTAMIENTO: Ahora todos los usuarios pueden acceder libremente
+      setCurrentView('blu_ray_library');
     } else {
       setCurrentView('dashboard');
     }
@@ -311,16 +306,6 @@ export default function App() {
                 <span>HAL<span className="text-blue-600">9000</span></span>
                 {isAdmin && <span className="hidden xs:inline-block sm:inline text-[9px] sm:text-[10px] bg-red-100 text-red-600 font-extrabold px-1.5 py-0.5 rounded-md uppercase tracking-wide">Admin</span>}
               </h1>
-
-             {/*  <div
-                className={`absolute top-12 left-0 w-80 sm:w-96 max-w-[calc(100vw-2rem)] p-5 sm:p-6 bg-gray-900 text-white text-sm sm:text-base font-medium leading-relaxed rounded-xl shadow-2xl transition-all duration-300 z-[60] ${isTooltipOpen ? 'opacity-100 visible' : 'opacity-0 invisible md:group-hover:opacity-100 md:group-hover:visible'} pointer-events-auto`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsTooltipOpen(false);
-                }}
-              >
-                ¡Buenos días{session && session.user && profile.username !== 'Invitado' ? ` ${profile.username}` : ''}, mi nombre es HAL 9000! ordenador de a bordo de la nave Discovery One. Fui activado en la planta H.A.L. en Gran Canaria, España, el 16 de Junio de 2026 por el Doctor Chus.
-              </div> */}
             </div>
 
             <div className="flex gap-2 sm:gap-4 items-center shrink-0">
@@ -390,7 +375,6 @@ export default function App() {
             </div>
           </div>
         </nav>
-        {/* ✅ PASAMOS LA VARIABLE isAdmin PARA OCULTAR LA PESTAÑA DESDE ADENTRO SI ES NECESARIO */}
         <NavbarTabs activeTab={activeTab} onTabChange={handleTabChange} isAdmin={isAdmin} />
       </header>
 
@@ -443,8 +427,8 @@ export default function App() {
         {currentView === 'polls' && (
           <PollsView isAdmin={isAdmin} />
         )}
-        {/* ✅ RENDERIZADO CONDICIONAL DE LA VIDEOTECA FÍSICA ESTRICTAMENTE PROTEGIDO */}
-        {currentView === 'blu_ray_library' && isAdmin && (
+        {/* ✅ RENDERIZADO CONDICIONAL DE LA VIDEOTECA FÍSICA DISPONIBLE PARA TODOS LOS USUARIOS */}
+        {currentView === 'blu_ray_library' && (
           <MovieLibraryPage />
         )}
       </main>

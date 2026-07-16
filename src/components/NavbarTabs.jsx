@@ -5,6 +5,7 @@ export default function NavbarTabs({ activeTab, onTabChange, isAdmin }) {
   const [isMobileGamesOpen, setIsMobileGamesOpen] = useState(false);
   const [isDesktopGamesOpen, setIsDesktopGamesOpen] = useState(false);
 
+  // Hemos movido 'blu_ray_library' aquí para que esté disponible para todos los usuarios
   const baseTabs = [
     { id: 'feed', label: 'Biblioteca' },
     { id: 'rankings', label: 'Tops' },
@@ -12,20 +13,15 @@ export default function NavbarTabs({ activeTab, onTabChange, isAdmin }) {
     { id: 'upcoming', label: 'Próximos Estrenos' },
     { id: 'trailers', label: 'Próximos Trailers' },
     { id: 'suggestions', label: '¿Qué ver?' },
+    { id: 'blu_ray_library', label: 'Mi Videoteca' }, 
   ];
 
-  const mainTabs = isAdmin 
-    ? [
-        ...baseTabs,
-        { id: 'blu_ray_library', label: 'Mi Videoteca' },
-        { id: 'news', label: 'Noticias' },
-        { id: 'polls', label: 'Encuestas' },
-      ]
-    : [
-        ...baseTabs,
-        { id: 'news', label: 'Noticias' },
-        { id: 'polls', label: 'Encuestas' },
-      ];
+  // Ahora 'mainTabs' simplemente añade las secciones comunes de Noticias y Encuestas
+  const mainTabs = [
+    ...baseTabs,
+    { id: 'news', label: 'Noticias' },
+    { id: 'polls', label: 'Encuestas' },
+  ];
 
   const gameTabs = [
     { id: 'quiz', label: 'Quiz' },
@@ -143,12 +139,7 @@ export default function NavbarTabs({ activeTab, onTabChange, isAdmin }) {
             </svg>
           </button>
 
-          {/* 
-            SOLUCIÓN DEL PUENTE DE HOVER:
-            - Usamos top-full (pega el contenedor transparente al botón, sin huecos).
-            - Usamos pt-2 para crear el espacio visual de separación.
-            - El fondo blanco, los bordes y sombras se aplican al contenedor hijo.
-          */}
+          {/* SOLUCIÓN DEL PUENTE DE HOVER */}
           {isDesktopGamesOpen && (
             <div className="absolute left-0 top-full pt-2 w-48 z-50 animate-fade-in">
               <div className="bg-white border border-gray-200 rounded-xl shadow-lg py-1.5">

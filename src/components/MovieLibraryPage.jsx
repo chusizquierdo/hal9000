@@ -33,6 +33,13 @@ export default function MovieLibraryPage() {
   const isTouchDraggingRef = useRef(false);
   const [isTouchDragging, setIsTouchDragging] = useState(false);
 
+  // 👥 ESTADOS NUEVOS PARA "OTRAS BIBLIOTECAS"
+  const [selectedLibraryUser, setSelectedLibraryUser] = useState(null); // null = propia biblioteca, o { id, username, avatar_url }
+  const [profiles, setProfiles] = useState([]);
+  const [showProfilesModal, setShowProfilesModal] = useState(false);
+  const [loadingProfiles, setLoadingProfiles] = useState(false);
+  const [profileSearch, setProfileSearch] = useState('');
+
   // Contadores para el header
   const dvdCount = library.filter(m => m.format === 'dvd').length;
   const blurayCount = library.filter(m => m.format === 'bluray').length;
@@ -65,27 +72,53 @@ export default function MovieLibraryPage() {
     };
   }, []);
 
+  // 👥 Obtener perfiles de usuarios de la tabla "profiles"
+  const fetchProfiles = async () => {
+    setLoadingProfiles(true);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, username, avatar_url')
+      .order('username', { ascending: true });
+
+    if (error) {
+      notify('error', 'Error al cargar los usuarios.');
+    } else {
+      setProfiles(data || []);
+    }
+    setLoadingProfiles(false);
+  };
+
+  useEffect(() => {
+    if (showProfilesModal) {
+      fetchProfiles();
+    }
+  }, [showProfilesModal]);
+
+  // 👥 Carga la biblioteca correspondiente (del usuario actual o del seleccionado)
   const fetchLibrary = async () => {
-    if (!userId) return;
+    const targetUserId = selectedLibraryUser ? selectedLibraryUser.id : userId;
+    if (!targetUserId) return;
+
     const { data, error } = await supabase
       .from('videoteca')
       .select('*')
-      .eq('user_id', userId)
+      .eq('user_id', targetUserId)
       .order('display_order', { ascending: true });
 
     if (error) {
-      notify('error', 'Error al cargar tu videoteca.');
+      notify('error', 'Error al cargar la videoteca.');
     } else {
       updateLibraryState(data || []);
     }
   };
 
   useEffect(() => {
-    if (userId) fetchLibrary();
-  }, [userId]);
+    fetchLibrary();
+  }, [userId, selectedLibraryUser]);
 
   useEffect(() => {
     const handleGlobalDragOver = (e) => {
+      if (selectedLibraryUser) return; // Deshabilitado en modo lectura
       const scrollThreshold = 120;
       if (e.clientY < scrollThreshold) {
         window.scrollBy(0, -15);
@@ -96,7 +129,7 @@ export default function MovieLibraryPage() {
 
     window.addEventListener('dragover', handleGlobalDragOver);
     return () => window.removeEventListener('dragover', handleGlobalDragOver);
-  }, []);
+  }, [selectedLibraryUser]);
 
   const notify = (type, text) => {
     setStatus({ type, text });
@@ -119,6 +152,7 @@ export default function MovieLibraryPage() {
   };
 
   const persistOrder = async (newLibrary) => {
+    if (selectedLibraryUser) return; // Deshabilitado en modo lectura
     updateLibraryState(newLibrary);
     const updates = newLibrary.map((movie, index) => ({
       ...movie,
@@ -136,7 +170,7 @@ export default function MovieLibraryPage() {
   };
 
   const addMovie = async (movieData, format) => {
-    if (!userId) return;
+    if (!userId || selectedLibraryUser) return; // Deshabilitado en modo lectura
     const newMovie = {
       user_id: userId,
       api_id: movieData.id,
@@ -165,6 +199,7 @@ export default function MovieLibraryPage() {
 
   const deleteMovie = async (id, e = null) => {
     if (e) e.stopPropagation();
+    if (selectedLibraryUser) return; // Deshabilitado en modo lectura
     const { error } = await supabase.from('videoteca').delete().eq('id', id).eq('user_id', userId);
     if (error) {
       notify('error', 'Error al eliminar.');
@@ -178,6 +213,16 @@ export default function MovieLibraryPage() {
   const changeFilter = (format) => {
     setActiveFormatFilter(format);
     setCurrentPage(1);
+  };
+
+  // Función auxiliar para saltar a otra biblioteca limpiando estados de búsquedas
+  const handleViewOtherLibrary = (profile) => {
+    setSelectedLibraryUser(profile);
+    setShowProfilesModal(false);
+    setCurrentPage(1);
+    setLocalSearchQuery('');
+    setShowExternalSearch(false);
+    setSearchResults([]);
   };
 
   const filteredLibrary = libraryRef.current.filter(movie => {
@@ -197,6 +242,7 @@ export default function MovieLibraryPage() {
 
   const handlePageDragEnter = (e, direction) => {
     e.preventDefault();
+    if (selectedLibraryUser) return; // Deshabilitado en modo lectura
     setHoveredPageButton(direction);
     if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
     dragTimeoutRef.current = setTimeout(() => {
@@ -226,12 +272,14 @@ export default function MovieLibraryPage() {
 
   const handlePageDragLeave = (e) => {
     e.preventDefault();
+    if (selectedLibraryUser) return;
     setHoveredPageButton(null);
     if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
   };
 
   // Lógica Drag & Drop Computadora (Ratón)
   const handleDragStart = (e, index) => {
+    if (selectedLibraryUser) { e.preventDefault(); return; } // Deshabilitado en modo lectura
     const targetItem = paginatedLibrary[index];
     const realIndex = libraryRef.current.findIndex(m => m.id === targetItem.id);
     setDraggedIndex(realIndex);
@@ -239,6 +287,7 @@ export default function MovieLibraryPage() {
 
   const handleItemDragEnter = (e, index) => {
     e.preventDefault();
+    if (selectedLibraryUser) return; // Deshabilitado en modo lectura
     const targetItem = paginatedLibrary[index];
     const realIndex = libraryRef.current.findIndex(m => m.id === targetItem.id);
     const currentIndex = draggedIndexRef.current;
@@ -252,6 +301,7 @@ export default function MovieLibraryPage() {
   };
 
   const handleDragEnd = () => {
+    if (selectedLibraryUser) return;
     if (draggedIndexRef.current !== null) {
       persistOrder(libraryRef.current);
       setDraggedIndex(null);
@@ -262,6 +312,7 @@ export default function MovieLibraryPage() {
 
   // Lógica Drag & Drop Móvil (Táctil Premium con Toque Largo)
   const handleTouchStart = (e, index) => {
+    if (selectedLibraryUser) return; // Deshabilitado en modo lectura
     if (e.target.closest('button')) return;
 
     const targetItem = paginatedLibrary[index];
@@ -282,6 +333,7 @@ export default function MovieLibraryPage() {
   };
 
   const handleTouchMove = (e) => {
+    if (selectedLibraryUser) return;
     const touch = e.touches[0];
 
     if (!isTouchDraggingRef.current) {
@@ -319,6 +371,7 @@ export default function MovieLibraryPage() {
   };
 
   const handleTouchEnd = (e) => {
+    if (selectedLibraryUser) return;
     clearTimeout(touchTimeoutRef.current);
     if (isTouchDraggingRef.current) {
       persistOrder(libraryRef.current);
@@ -332,9 +385,14 @@ export default function MovieLibraryPage() {
     }
   };
 
+  // Filtrado de perfiles en base a la barra de búsqueda del modal
+  const filteredProfiles = profiles.filter(prof => 
+    (prof.username || '').toLowerCase().includes(profileSearch.toLowerCase())
+  );
+
   return (
     <div className="space-y-6 pb-12 px-4 max-w-7xl mx-auto mt-6 animate-fadeIn text-slate-100 min-h-screen">
-      {/* INYECCIÓN DE ANIMACIÓN CSS NATIVA PARA EL DESTELLO BLANCO EN MÓVIL */}
+      {/* INYECCIÓN DE ANIMACIÓN CSS NATIVA PARA EL DESTELLO BLANCO EN MÓVIL Y CUSTOM SCROLLBAR */}
       <style>{`
         @keyframes customWhiteFlash {
           0% { opacity: 0; }
@@ -343,6 +401,19 @@ export default function MovieLibraryPage() {
         }
         .animate-flash-glow {
           animation: customWhiteFlash 0.35s ease-out forwards;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #1e293b;
+          border-radius: 9999px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #0891b2;
         }
       `}</style>
 
@@ -360,7 +431,7 @@ export default function MovieLibraryPage() {
         </div>
       )}
 
-      {/* HEADER CON CONTADORES INTERACTIVOS */}
+      {/* HEADER CON CONTADORES INTERACTIVOS Y NUEVO BOTÓN "OTRAS COLECCIONES" */}
       <div className="bg-slate-950 border border-blue-900/40 rounded-2xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
         <div className="h-6 bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 flex items-center justify-center text-[9px] font-black tracking-[0.3em] text-white uppercase shadow-inner">
           ✦ Videoteca Digital ✦
@@ -368,7 +439,7 @@ export default function MovieLibraryPage() {
         <div className="p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h2 className="text-lg font-black tracking-wider flex items-center gap-2 uppercase text-cyan-400">
-              💿 Mi Colección
+              {selectedLibraryUser ? `💿 Colección de ${selectedLibraryUser.username}` : '💿 Mi Colección'}
             </h2>
             <div className="flex flex-wrap gap-2 mt-2">
               <button 
@@ -416,17 +487,55 @@ export default function MovieLibraryPage() {
               </button>
             </div>
           </div>
-          <button 
-            onClick={() => setShowExternalSearch(true)} 
-            className="bg-cyan-600 hover:bg-cyan-500 text-white font-black text-xs py-3 px-6 rounded-xl transition-all uppercase tracking-wider flex items-center gap-2 shadow-lg shrink-0 w-full sm:w-auto justify-center"
-          >
-            <span>+</span> Añadir película
-          </button>
+
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            {/* Botón para abrir el listado de otros usuarios */}
+            <button 
+              onClick={() => setShowProfilesModal(true)} 
+              className="bg-slate-900 hover:bg-slate-800 text-cyan-400 border border-cyan-900/60 font-bold text-xs py-3 px-5 rounded-xl transition-all uppercase tracking-wider flex items-center justify-center gap-2 shadow-md w-full sm:w-auto"
+            >
+              👥 Otras colecciones
+            </button>
+
+            {/* Solo permitimos añadir películas si estamos en nuestra propia colección */}
+            {!selectedLibraryUser && (
+              <button 
+                onClick={() => setShowExternalSearch(true)} 
+                className="bg-cyan-600 hover:bg-cyan-500 text-white font-black text-xs py-3 px-6 rounded-xl transition-all uppercase tracking-wider flex items-center gap-2 shadow-lg shrink-0 w-full sm:w-auto justify-center"
+              >
+                <span>+</span> Añadir película
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* BUSCADOR DE TMDB */}
-      {showExternalSearch && (
+      {/* BANNER INFORMATIVO EN MODO LECTURA */}
+      {selectedLibraryUser && (
+        <div className="bg-cyan-950/40 border border-cyan-500/20 text-cyan-200 px-4 py-3 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-3 animate-fadeIn">
+          <div className="flex items-center gap-3">
+            {selectedLibraryUser.avatar_url ? (
+              <img src={selectedLibraryUser.avatar_url} alt="Avatar" className="w-8 h-8 rounded-full border border-cyan-500/30 object-cover" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-cyan-900 flex items-center justify-center font-black text-xs text-cyan-300">
+                {selectedLibraryUser.username ? selectedLibraryUser.username[0].toUpperCase() : '?'}
+              </div>
+            )}
+            <span className="text-xs">
+              Viendo la videoteca de <strong className="text-white uppercase font-black tracking-wider">{selectedLibraryUser.username || 'Usuario'}</strong>. Las opciones de edición están desactivadas.
+            </span>
+          </div>
+          <button 
+            onClick={() => setSelectedLibraryUser(null)}
+            className="text-[10px] bg-red-950/60 hover:bg-red-900/80 border border-red-900/50 text-red-200 font-bold px-3 py-1.5 rounded-xl transition-all uppercase tracking-wider whitespace-nowrap"
+          >
+            Regresar a mi colección ✕
+          </button>
+        </div>
+      )}
+
+      {/* BUSCADOR DE TMDB (Solo visible si estás en tu propia colección) */}
+      {showExternalSearch && !selectedLibraryUser && (
         <div className="bg-slate-950 border border-cyan-500/30 rounded-2xl p-4 sm:p-6 shadow-2xl relative animate-fadeIn space-y-4">
           <button 
             onClick={() => {
@@ -503,10 +612,13 @@ export default function MovieLibraryPage() {
       )}
 
       {/* BUSCADOR FILTRO INTERNO */}
-      {!showExternalSearch && library.length > 1 && (
+      {(!showExternalSearch || selectedLibraryUser) && library.length > 1 && (
         <div className="bg-slate-950 border border-blue-900/40 rounded-2xl p-6 shadow-xl space-y-2 animate-fadeIn">
           <label className="text-xs font-black uppercase text-cyan-400 tracking-widest block">
-            {activeFormatFilter === 'all' ? 'Filtrar mi Videoteca' : `Filtrar tus películas en ${activeFormatFilter.toUpperCase()}`}
+            {activeFormatFilter === 'all' 
+              ? (selectedLibraryUser ? `Filtrar Videoteca de ${selectedLibraryUser.username}` : 'Filtrar mi Videoteca')
+              : `Filtrar películas en ${activeFormatFilter.toUpperCase()}`
+            }
           </label>
           <input
             type="text"
@@ -515,7 +627,7 @@ export default function MovieLibraryPage() {
               setLocalSearchQuery(e.target.value);
               setCurrentPage(1);
             }}
-            placeholder="Escribe para buscar dentro de tus películas guardadas..."
+            placeholder="Escribe para buscar dentro de las películas guardadas..."
             className="w-full bg-blue-950/60 border border-blue-800/80 rounded-xl px-4 py-3 text-base sm:text-xs text-cyan-100 placeholder:text-blue-500/70 focus:outline-none focus:border-cyan-400 transition-all font-medium"
           />
         </div>
@@ -554,7 +666,7 @@ export default function MovieLibraryPage() {
               <div 
                 key={movie.id} 
                 data-index={index}
-                draggable
+                draggable={!selectedLibraryUser}
                 onDragStart={(e) => handleDragStart(e, index)}
                 onDragEnter={(e) => handleItemDragEnter(e, index)}
                 onDragOver={(e) => e.preventDefault()} 
@@ -587,12 +699,15 @@ export default function MovieLibraryPage() {
                     draggable="false"
                   />
                   
-                  <button 
-                    onClick={(e) => deleteMovie(movie.id, e)}
-                    className="absolute top-2 right-2 bg-red-600/90 p-2 rounded-xl text-white opacity-0 group-hover:opacity-100 transition-all shadow-md z-20 pointer-events-auto"
-                  >
-                    🗑️
-                  </button>
+                  {/* Botón de borrado (Solo si estás en tu propia biblioteca) */}
+                  {!selectedLibraryUser && (
+                    <button 
+                      onClick={(e) => deleteMovie(movie.id, e)}
+                      className="absolute top-2 right-2 bg-red-600/90 p-2 rounded-xl text-white opacity-0 group-hover:opacity-100 transition-all shadow-md z-20 pointer-events-auto"
+                    >
+                      🗑️
+                    </button>
+                  )}
                 </div>
                 <div className="p-2.5 bg-slate-950 border-t border-blue-950 pointer-events-none select-none">
                   <h4 className="font-bold text-xs text-cyan-100 truncate">{movie.title}</h4>
@@ -635,6 +750,82 @@ export default function MovieLibraryPage() {
           >
             Sig ▶
           </button>
+        </div>
+      )}
+
+      {/* 👥 MODAL FLOTANTE DE OTRAS COLECCIONES */}
+      {showProfilesModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-slate-950 border border-blue-900/50 rounded-2xl w-full max-w-md overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.8)] flex flex-col max-h-[80vh]">
+            
+            {/* Cabecera del Modal */}
+            <div className="h-14 bg-gradient-to-r from-blue-600 to-cyan-500 flex items-center justify-between px-4 text-xs font-black tracking-widest text-white uppercase">
+              <span className="flex items-center gap-2">👥 Colecciones de Usuarios</span>
+              <button 
+                onClick={() => setShowProfilesModal(false)}
+                className="text-white hover:text-red-200 text-sm font-bold bg-black/20 hover:bg-black/40 w-8 h-8 rounded-xl flex items-center justify-center transition-all"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Contenido del Modal */}
+            <div className="p-4 flex-1 flex flex-col min-h-0 space-y-4">
+              <p className="text-[11px] text-slate-400">Selecciona un usuario de la comunidad para echar un vistazo a su catálogo físico.</p>
+              
+              {/* Buscador de perfiles */}
+              <input
+                type="text"
+                placeholder="Buscar usuario..."
+                className="w-full bg-blue-950/40 border border-blue-900 rounded-xl px-3 py-2.5 text-xs text-cyan-100 placeholder:text-blue-500/70 focus:outline-none focus:border-cyan-400 transition-all font-medium"
+                onChange={(e) => setProfileSearch(e.target.value)}
+                value={profileSearch}
+              />
+
+              {loadingProfiles ? (
+                <div className="flex-1 flex items-center justify-center text-xs text-slate-400 py-12">
+                  Cargando usuarios de la comunidad...
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar max-h-[45vh]">
+                  {filteredProfiles.length > 0 ? (
+                    filteredProfiles.map((prof) => (
+                      <button
+                        key={prof.id}
+                        onClick={() => handleViewOtherLibrary(prof)}
+                        className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left ${
+                          selectedLibraryUser?.id === prof.id
+                            ? 'bg-cyan-950/60 border-cyan-400 text-cyan-100 shadow-[0_0_10px_rgba(34,211,238,0.1)]'
+                            : 'bg-slate-900/40 border-blue-950 text-slate-300 hover:bg-blue-950/30 hover:border-blue-900/60 hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {prof.avatar_url ? (
+                            <img src={prof.avatar_url} alt="Avatar" className="w-8 h-8 rounded-full border border-blue-900/50 object-cover" />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-blue-950 border border-blue-900/50 flex items-center justify-center font-black text-xs text-cyan-400">
+                              {prof.username ? prof.username[0].toUpperCase() : '?'}
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-bold text-xs">{prof.username || 'Usuario sin nombre'}</p>
+                            {prof.id === userId && (
+                              <span className="text-[9px] bg-slate-800 text-slate-400 font-bold px-1.5 py-0.5 rounded-md mt-0.5 inline-block">Mi cuenta</span>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider">Ver ➜</span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-xs text-slate-500">
+                      No se encontraron usuarios con ese nombre.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
