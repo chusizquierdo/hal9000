@@ -8,6 +8,22 @@ import UserLeaderboard from './UserLeaderboard';
 import News from './News'; 
 import SuggestionsPage from './SuggestionsPage';
 
+// 💾 FUNCIONES DE CACHÉ EN SESIÓN (Para evitar consultas repetitivas a TMDB)
+const getCachedTmdb = (type, apiId) => {
+  try {
+    const cached = sessionStorage.getItem(`tmdb_${type}_${apiId}`);
+    return cached ? JSON.parse(cached) : null;
+  } catch (e) {
+    return null;
+  }
+};
+
+const setCachedTmdb = (type, apiId, data) => {
+  try {
+    sessionStorage.setItem(`tmdb_${type}_${apiId}`, JSON.stringify(data));
+  } catch (e) {}
+};
+
 export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, isAdmin, activeTab }) {
   const [items, setItems] = useState([]);
   const [sortBy, setSortBy] = useState('recent');
@@ -23,57 +39,140 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
   }, [page]);
 
   useEffect(() => {
-    fetchMediaWithData();
+    let isMounted = true;
+    fetchMediaWithData(isMounted);
+    return () => {
+      isMounted = false;
+    };
   }, [userIdFilter]);
 
-  const fetchMediaWithData = async () => {
+  const fetchMediaWithData = async (isMounted) => {
+    console.log("⏱️ [Dashboard] Iniciando fetchMediaWithData optimizado...");
+    const startTime = performance.now();
+
+    // 1. Obtener datos rápidos de Supabase
     const { data: itemsFromDb, error } = await supabase
       .from('media_items')
       .select(`*, reviews (id, comment, rating, created_at, user_id)`);
     
     if (error) {
-      console.error("Error al cargar datos:", error);
+      console.error("❌ [Dashboard] Error al cargar datos de Supabase:", error);
       Sentry.captureException(error);
+      return;
     }
     
-    if (itemsFromDb) {
-      const itemsWithData = await Promise.all(itemsFromDb.map(async (m) => {
-        let year = 0;
-        let title = m.title;
-        let genres = [];
-        let poster_url = m.poster_url;
-        
-        try {
-          const type = m.media_type === 'tv' ? 'tv' : 'movie';
-          const res = await fetch(`https://api.themoviedb.org/3/${type}/${m.api_id}?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES`);
-          const data = await res.json();
-          if (!poster_url && data.poster_path) poster_url = `https://image.tmdb.org/t/p/w500${data.poster_path}`;
-          const date = data.release_date || data.first_air_date;
-          year = date ? parseInt(date.substring(0, 4)) : 0;
-          title = data.title || data.name;
-          genres = data.genres ? data.genres.map(g => g.name) : [];
-        } catch (e) { 
-          console.error("Error TMDB"); 
-          Sentry.captureException(e);
-        }
+    if (!itemsFromDb) return;
+    if (!isMounted) return;
 
-        const sortedReviews = (m.reviews || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        const userReview = userIdFilter ? (m.reviews || []).find(r => r.user_id === userIdFilter) : null;
-        const avg = sortedReviews.length > 0 ? (sortedReviews.reduce((acc, r) => acc + r.rating, 0) / sortedReviews.length) : 0;
-        
-        return { 
-          ...m, 
-          poster_url,
-          avg, 
-          firstReview: userReview || sortedReviews[0], 
-          year, 
-          title, 
-          genres, 
-          hasUserReview: userIdFilter ? !!userReview : true
-        };
-      }));
-      setItems(itemsWithData);
+    const dbTime = performance.now();
+    console.log(`📊 [Dashboard] Supabase devolvió ${itemsFromDb.length} elementos en ${((dbTime - startTime)).toFixed(0)}ms.`);
+
+    // 2. Procesar inmediatamente los datos de Supabase para renderizar la UI al instante
+    const initialItems = itemsFromDb.map(m => {
+      const sortedReviews = (m.reviews || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      const userReview = userIdFilter ? (m.reviews || []).find(r => r.user_id === userIdFilter) : null;
+      const avg = sortedReviews.length > 0 ? (sortedReviews.reduce((acc, r) => acc + r.rating, 0) / sortedReviews.length) : 0;
+      
+      return {
+        ...m,
+        poster_url: m.poster_url || '',
+        avg,
+        firstReview: userReview || sortedReviews[0],
+        year: 0, 
+        title: m.title, // Usamos el título por defecto guardado en la base de datos
+        genres: [],
+        hasUserReview: userIdFilter ? !!userReview : true,
+        tmdbLoaded: false
+      };
+    });
+
+    // Pintar la interfaz inmediatamente (Carga en < 1 segundo)
+    setItems(initialItems);
+
+    // 3. Organizar cola de peticiones a TMDB: Priorizar elementos de la vista/página actual
+    const startIndex = page * PAGE_SIZE;
+    const endIndex = startIndex + PAGE_SIZE;
+
+    // Hacemos una estimación rápida de qué se verá en pantalla inicialmente
+    const initialFiltered = initialItems.filter(item => {
+      const matchType = filterType === 'all' || item.media_type === filterType;
+      const matchSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchType && item.hasUserReview && matchSearch;
+    });
+
+    const visibleItems = initialFiltered.slice(startIndex, endIndex);
+    const visibleIds = new Set(visibleItems.map(item => item.id));
+
+    // Dividimos la carga: lo que ve el usuario va primero, el resto de fondo
+    const priorityItems = initialItems.filter(item => visibleIds.has(item.id));
+    const backgroundItems = initialItems.filter(item => !visibleIds.has(item.id));
+    const orderedFetchList = [...priorityItems, ...backgroundItems];
+
+    console.log(`⚡ [Dashboard] Iniciando carga de TMDB en segundo plano (Prioritarios: ${priorityItems.length}, Background: ${backgroundItems.length})...`);
+
+    // Función auxiliar para obtener datos de un solo elemento (con control de caché)
+    const fetchSingleTmdb = async (m) => {
+      const type = m.media_type === 'tv' ? 'tv' : 'movie';
+      const cached = getCachedTmdb(type, m.api_id);
+      
+      if (cached) {
+        return { id: m.id, data: cached };
+      }
+
+      try {
+        const res = await fetch(`https://api.themoviedb.org/3/${type}/${m.api_id}?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        setCachedTmdb(type, m.api_id, data);
+        return { id: m.id, data };
+      } catch (e) {
+        console.error(`❌ [TMDB] Error para ID API ${m.api_id} ("${m.title}"):`, e.message || e);
+        return { id: m.id, data: null };
+      }
+    };
+
+    // Procesar en chunks de 6 (Respetando el límite máximo de conexiones paralelas del navegador)
+    const CHUNK_SIZE = 6;
+    let currentItems = [...initialItems];
+
+    for (let i = 0; i < orderedFetchList.length; i += CHUNK_SIZE) {
+      if (!isMounted) return;
+
+      const chunk = orderedFetchList.slice(i, i + CHUNK_SIZE);
+      const results = await Promise.all(chunk.map(item => fetchSingleTmdb(item)));
+
+      // Actualizar progresivamente los elementos con los datos de TMDB obtenidos
+      currentItems = currentItems.map(item => {
+        const result = results.find(r => r.id === item.id);
+        if (result && result.data) {
+          const data = result.data;
+          const date = data.release_date || data.first_air_date;
+          const year = date ? parseInt(date.substring(0, 4)) : 0;
+          const title = data.title || data.name || item.title;
+          const genres = data.genres ? data.genres.map(g => g.name) : [];
+          const poster_url = item.poster_url || (data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : '');
+
+          return {
+            ...item,
+            poster_url,
+            year,
+            title,
+            genres,
+            tmdbLoaded: true
+          };
+        }
+        return item;
+      });
+
+      // Guardar el estado actualizado progresivamente sin interrumpir al usuario
+      if (isMounted) {
+        setItems([...currentItems]);
+      }
     }
+
+    const endTime = performance.now();
+    console.log(`🚀 [Dashboard] ¡PROCESO COMPLETADO EN SEGUNDO PLANO!`);
+    console.log(`⏱️ [Dashboard] Tiempo total acumulado de procesamiento: ${((endTime - startTime) / 1000).toFixed(2)} segundos.`);
   };
 
   const handleDeleteMediaItem = async (itemId, title, e) => {
@@ -89,7 +188,7 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
         alert("Error al borrar: " + error.message);
         Sentry.captureException(error);
       } else {
-        await fetchMediaWithData();
+        await fetchMediaWithData(true);
       }
     } catch (catchError) {
       console.error("Error crítico en el borrado:", catchError);
@@ -98,7 +197,7 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
     }
   };
 
-  const allGenres = [...new Set(items.flatMap(item => item.genres))].sort();
+  const allGenres = [...new Set(items.flatMap(item => item.genres || []))].sort();
 
   const filteredAndSortedItems = items
     .filter(item => {
@@ -208,7 +307,25 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
               {paginatedItems.map(m => (
                 <div key={m.id} className="group bg-white rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-300 border border-gray-100 cursor-pointer flex flex-col relative overflow-hidden" onClick={() => onViewMovie(m.id)}>
                   <div className="relative h-60 sm:h-64 overflow-hidden rounded-t-2xl bg-gray-100">
-                    <img src={m.poster_url} alt={m.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                    
+                    {/* 🎬 Control de renderizado del Póster o carga progresiva */}
+                    {m.poster_url ? (
+                      <img 
+                        src={m.poster_url} 
+                        alt={m.title} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                        loading="lazy" 
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900 p-4 text-center">
+                        <svg className="animate-spin h-6 w-6 text-blue-500 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span className="text-gray-400 text-xs font-bold uppercase tracking-wider animate-pulse">Cargando...</span>
+                      </div>
+                    )}
+
                     <div className="absolute top-3 left-3 flex gap-1.5 items-center">
                       <span className="bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">{m.media_type === 'tv' ? 'Serie' : 'Película'}</span>
                     </div>
@@ -224,8 +341,10 @@ export default function Dashboard({ onViewMovie, userIdFilter = null, onBack, is
                   </div>
                   <div className="p-4 sm:p-5 flex-grow flex flex-col">
                     <h2 className="font-bold text-gray-900 text-base sm:text-lg truncate">{m.title}</h2>
-                    <p className="text-gray-500 text-xs sm:text-sm mb-1">{m.year > 0 ? m.year : 'N/A'}</p>
-                    <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wide mb-3">{m.genres?.slice(0, 2).join(' • ')}</p>
+                    <p className="text-gray-500 text-xs sm:text-sm mb-1">{m.year > 0 ? m.year : 'Cargando año...'}</p>
+                    <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wide mb-3">
+                      {m.genres && m.genres.length > 0 ? m.genres.slice(0, 2).join(' • ') : 'Cargando géneros...'}
+                    </p>
                     {m.firstReview && <p className="text-xs text-gray-400 italic mb-4 line-clamp-2 border-t pt-3">"{m.firstReview.comment}"</p>}
                     <div className="flex items-center gap-1 font-bold text-yellow-500 mt-auto text-sm sm:text-base">★ <span className="text-gray-900">{m.avg > 0 ? m.avg.toFixed(1) : '0.0'}</span></div>
                   </div>

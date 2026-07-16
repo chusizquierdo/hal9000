@@ -50,7 +50,6 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
     return <span dangerouslySetInnerHTML={{ __html: formatted }} />;
   };
 
-  // Formateador de fecha y hora amigable
   const formatDate = (dateString) => {
     if (!dateString) return '';
     try {
@@ -66,138 +65,300 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
       return '';
     }
   };
-  // ----------------------------------
 
+  // --- Resolución del ID Inicial ---
   useEffect(() => {
+    let active = true;
     const resolveInitialId = async () => {
-      const { data: item } = await supabase
-        .from('media_items')
-        .select('api_id, media_type')
-        .eq('id', String(mediaId))
-        .maybeSingle();
-      
-      if (item) {
-        setCurrentTmdbId(item.api_id);
-        setCurrentMediaType(item.media_type === 'tv' ? 'tv' : 'movie');
-        setSupabaseItemId(mediaId);
-      } else {
+      try {
+        const { data: item } = await supabase
+          .from('media_items')
+          .select('api_id, media_type')
+          .eq('id', String(mediaId))
+          .maybeSingle();
+        
+        if (!active) return;
+
+        if (item) {
+          setCurrentTmdbId(item.api_id);
+          setCurrentMediaType(item.media_type === 'tv' ? 'tv' : 'movie');
+          setSupabaseItemId(mediaId);
+        } else {
+          setCurrentTmdbId(mediaId);
+          setCurrentMediaType('movie');
+          setSupabaseItemId(null);
+        }
+      } catch (err) {
+        console.error("Error resolviendo ID inicial", err);
+        if (!active) return;
         setCurrentTmdbId(mediaId);
         setCurrentMediaType('movie');
         setSupabaseItemId(null);
       }
     };
     resolveInitialId();
+    return () => {
+      active = false;
+    };
   }, [mediaId]);
 
+  // --- Carga de datos optimizada en paralelo ---
   useEffect(() => {
+    const controller = new AbortController();
     if (currentTmdbId) {
-      fetchData();
+      fetchData(controller.signal);
     }
+    return () => {
+      controller.abort();
+    };
   }, [currentTmdbId, currentMediaType]);
 
-  const fetchData = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    setCurrentUser(user);
+  const fetchData = async (signal) => {
     const type = currentMediaType;
     const tmdbId = currentTmdbId;
+    const apiKey = '8005d659cd2756fbe0a09eaba113b878';
 
-    const { data: existingItem } = await supabase
-      .from('media_items')
-      .select('id')
-      .eq('api_id', String(tmdbId))
-      .maybeSingle();
+    // Wrappers asíncronos para evitar usar .catch() directo sobre los Builders de Supabase
+    const getAuthUserSafe = async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        return data?.user || null;
+      } catch {
+        return null;
+      }
+    };
 
+    const getExistingItemSafe = async () => {
+      try {
+        const { data } = await supabase
+          .from('media_items')
+          .select('id')
+          .eq('api_id', String(tmdbId))
+          .maybeSingle();
+        return data || null;
+      } catch {
+        return null;
+      }
+    };
+
+    // 1. Cargamos el usuario y la comprobación de existencia en Supabase en paralelo
+    const [user, existingItem] = await Promise.all([
+      getAuthUserSafe(),
+      getExistingItemSafe()
+    ]);
+
+    if (signal?.aborted) return;
+
+    setCurrentUser(user);
     const dbItemId = existingItem ? existingItem.id : null;
     setSupabaseItemId(dbItemId);
 
-    const res = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES`);
-    const tmdbData = await res.json();
-    setMovieData(tmdbData);
-
-    try {
-      const creditsRes = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/credits?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES`);
-      const creditsData = await creditsRes.json();
-      setCast(creditsData.cast?.slice(0, 12) || []);
-
-      if (type === 'movie') {
-        const movieDirector = creditsData.crew?.find(member => member.job === 'Director');
-        setDirector(movieDirector ? movieDirector.name : 'No disponible');
-      } else {
-        const tvCreators = tmdbData.created_by?.map(c => c.name).join(', ');
-        setDirector(tvCreators || 'No disponible');
+    // 2. Consulta de detalles de Supabase (Reseñas y Watchlist)
+    const fetchSupabaseDetails = async () => {
+      if (!dbItemId) {
+        if (signal?.aborted) return;
+        setReviews([]);
+        setUserReview(null);
+        setComment('');
+        setRating(5.0);
+        setIsInWatchlist(false);
+        setWatchlistId(null);
+        return;
       }
-    } catch (e) { console.error("Error en créditos", e); }
 
-    try {
-      const providersRes = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/watch/providers?api_key=8005d659cd2756fbe0a09eaba113b878`);
-      const providersData = await providersRes.json();
-      setWatchProviders(providersData.results?.ES?.flatrate || []);
-    } catch (e) { console.error("Error en proveedores", e); }
+      const getReviewsSafe = async () => {
+        try {
+          const { data } = await supabase
+            .from('reviews')
+            .select('*, profiles(username), review_likes(user_id)')
+            .eq('media_id', dbItemId);
+          return data || [];
+        } catch {
+          return [];
+        }
+      };
 
-    try {
-      let videoRes = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/videos?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES`);
-      let videoData = await videoRes.json();
-      let trailer = videoData.results?.find(v => v.type === 'Trailer' && v.site === 'YouTube');
+      const getWatchlistSafe = async () => {
+        if (!user) return null;
+        try {
+          const { data } = await supabase
+            .from('watchlist')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('media_item_id', dbItemId)
+            .maybeSingle();
+          return data || null;
+        } catch {
+          return null;
+        }
+      };
 
-      if (!trailer) {
-        videoRes = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/videos?api_key=8005d659cd2756fbe0a09eaba113b878`);
-        videoData = await videoRes.json();
-        trailer = videoData.results?.find(v => v.type === 'Trailer' && v.site === 'YouTube');
-      }
-      setTrailerKey(trailer ? trailer.key : '');
-    } catch (e) { setTrailerKey(''); }
+      const [reviewsData, watchlistData] = await Promise.all([
+        getReviewsSafe(),
+        getWatchlistSafe()
+      ]);
 
-    try {
-      const recRes = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}/recommendations?api_key=8005d659cd2756fbe0a09eaba113b878&language=es-ES`);
-      const recData = await recRes.json();
-      setRecommendations(recData.results?.slice(0, 8) || []);
-    } catch (e) { setRecommendations([]); }
+      if (signal?.aborted) return;
 
-    if (dbItemId) {
-      const { data: allReviews } = await supabase
-        .from('reviews')
-        .select('*, profiles(username), review_likes(user_id)')
-        .eq('media_id', dbItemId);
-      
-      const sortedReviews = (allReviews || []).sort((a, b) => {
+      const sortedReviews = [...reviewsData].sort((a, b) => {
         const likesA = a.review_likes?.length || 0;
         const likesB = b.review_likes?.length || 0;
         return likesB - likesA;
       });
-      
       setReviews(sortedReviews);
-      
-      const myReview = sortedReviews?.find(r => r.user_id === user?.id);
-      if (myReview) { 
-        setUserReview(myReview); 
-        setComment(myReview.comment); 
-        setRating(myReview.rating); 
+
+      const myReview = sortedReviews.find(r => r.user_id === user?.id);
+      if (myReview) {
+        setUserReview(myReview);
+        setComment(myReview.comment);
+        setRating(myReview.rating);
       } else {
-        setUserReview(null); setComment(''); setRating(5.0);
+        setUserReview(null);
+        setComment('');
+        setRating(5.0);
       }
 
-      if (user) {
-        const { data: watchlistEntry } = await supabase
-          .from('watchlist')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('media_item_id', dbItemId)
-          .maybeSingle();
+      if (watchlistData) {
+        setIsInWatchlist(true);
+        setWatchlistId(watchlistData.id);
+      } else {
+        setIsInWatchlist(false);
+        setWatchlistId(null);
+      }
+    };
 
-        if (watchlistEntry) {
-          setIsInWatchlist(true); setWatchlistId(watchlistEntry.id);
+    // Lanzamos la consulta secundaria de Supabase
+    const supabasePromise = fetchSupabaseDetails();
+
+    // 3. Auxiliar para fetch con timeout (Evita colgar la interfaz por TMDB)
+    const fetchWithTimeout = async (url, timeout = 3000, parentSignal = null) => {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
+      
+      if (parentSignal) {
+        if (parentSignal.aborted) {
+          controller.abort();
         } else {
-          setIsInWatchlist(false); setWatchlistId(null);
+          parentSignal.addEventListener('abort', () => controller.abort());
         }
       }
-    } else {
-      setReviews([]);
-      setUserReview(null);
-      setComment('');
-      setRating(5.0);
-      setIsInWatchlist(false);
-      setWatchlistId(null);
-    }
+
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(id);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.json();
+      } catch (error) {
+        clearTimeout(id);
+        throw error;
+      }
+    };
+
+    // 4. Funciones individuales para TMDB
+    const fetchMainData = async () => {
+      try {
+        const tmdbData = await fetchWithTimeout(`https://api.themoviedb.org/3/${type}/${tmdbId}?api_key=${apiKey}&language=es-ES`, 3500, signal);
+        if (signal?.aborted) return null;
+        setMovieData(tmdbData);
+        return tmdbData;
+      } catch (e) {
+        if (e.name === 'AbortError') return null;
+        console.error("❌ [TMDB] Error o Timeout al cargar info principal", e);
+        if (signal?.aborted) return null;
+        setMovieData({
+          title: "Título no disponible temporalmente",
+          overview: "No se pudieron obtener los detalles técnicos de los servidores de TMDB en este momento, pero puedes interactuar con las reseñas.",
+          poster_path: null,
+          release_date: "",
+          first_air_date: ""
+        });
+        return null;
+      }
+    };
+
+    const fetchCredits = async (mainTvPromise) => {
+      try {
+        const creditsData = await fetchWithTimeout(`https://api.themoviedb.org/3/${type}/${tmdbId}/credits?api_key=${apiKey}&language=es-ES`, 3000, signal);
+        if (signal?.aborted) return;
+        setCast(creditsData.cast?.slice(0, 12) || []);
+
+        if (type === 'movie') {
+          const movieDirector = creditsData.crew?.find(member => member.job === 'Director');
+          if (signal?.aborted) return;
+          setDirector(movieDirector ? movieDirector.name : 'No disponible');
+        } else {
+          const mainData = await mainTvPromise;
+          if (signal?.aborted) return;
+          const tvCreators = mainData?.created_by?.map(c => c.name).join(', ');
+          setDirector(tvCreators || 'No disponible');
+        }
+      } catch (e) {
+        if (e.name === 'AbortError') return;
+        console.error("❌ [TMDB] Error o Timeout en créditos", e);
+        if (signal?.aborted) return;
+        setCast([]);
+        setDirector('No disponible');
+      }
+    };
+
+    const fetchProviders = async () => {
+      try {
+        const providersData = await fetchWithTimeout(`https://api.themoviedb.org/3/${type}/${tmdbId}/watch/providers?api_key=${apiKey}`, 3000, signal);
+        if (signal?.aborted) return;
+        setWatchProviders(providersData.results?.ES?.flatrate || []);
+      } catch (e) {
+        if (e.name === 'AbortError') return;
+        console.error("❌ [TMDB] Error o Timeout en proveedores", e);
+        if (signal?.aborted) return;
+        setWatchProviders([]);
+      }
+    };
+
+    const fetchTrailers = async () => {
+      try {
+        let videoData = await fetchWithTimeout(`https://api.themoviedb.org/3/${type}/${tmdbId}/videos?api_key=${apiKey}&language=es-ES`, 2500, signal);
+        if (signal?.aborted) return;
+        let trailer = videoData.results?.find(v => v.type === 'Trailer' && v.site === 'YouTube');
+
+        if (!trailer) {
+          if (signal?.aborted) return;
+          videoData = await fetchWithTimeout(`https://api.themoviedb.org/3/${type}/${tmdbId}/videos?api_key=${apiKey}`, 2500, signal);
+          if (signal?.aborted) return;
+          trailer = videoData.results?.find(v => v.type === 'Trailer' && v.site === 'YouTube');
+        }
+        if (signal?.aborted) return;
+        setTrailerKey(trailer ? trailer.key : '');
+      } catch (e) {
+        if (e.name === 'AbortError') return;
+        console.error("❌ [TMDB] Error o Timeout en trailers", e);
+        if (signal?.aborted) return;
+        setTrailerKey('');
+      }
+    };
+
+    const fetchRecommendations = async () => {
+      try {
+        const recData = await fetchWithTimeout(`https://api.themoviedb.org/3/${type}/${tmdbId}/recommendations?api_key=${apiKey}&language=es-ES`, 3000, signal);
+        if (signal?.aborted) return;
+        setRecommendations(recData.results?.slice(0, 8) || []);
+      } catch (e) {
+        if (e.name === 'AbortError') return;
+        console.error("❌ [TMDB] Error o Timeout en recomendaciones", e);
+        if (signal?.aborted) return;
+        setRecommendations([]);
+      }
+    };
+
+    // Ejecutamos absolutamente todo en paralelo
+    const mainPromise = fetchMainData();
+    await Promise.all([
+      supabasePromise,
+      mainPromise,
+      fetchCredits(mainPromise),
+      fetchProviders(),
+      fetchTrailers(),
+      fetchRecommendations()
+    ]);
   };
 
   const handleToggleLike = async (reviewId, reviewAuthorId, currentLikes) => {
@@ -237,7 +398,7 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
       .eq('id', reviewId);
 
     if (error) {
-      alert("Error al borrar la reseña");
+      alert("Error al borrar la reseña: " + error.message);
     } else {
       if (!isAdminAction) {
         setIsEditing(false);
@@ -250,7 +411,7 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
     if (supabaseItemId) return supabaseItemId;
 
     const title = movieData.title || movieData.name;
-    const poster_url = `https://image.tmdb.org/t/p/w500${movieData.poster_path}`;
+    const poster_url = movieData.poster_path ? `https://image.tmdb.org/t/p/w500${movieData.poster_path}` : '';
 
     const { data, error } = await supabase
       .from('media_items')
@@ -258,7 +419,13 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
       .select('id')
       .single();
 
-    if (!error && data) {
+    if (error) {
+      console.error("❌ Error al registrar película en media_items:", error);
+      alert("No se pudo vincular la película en la Base de Datos: " + error.message);
+      return null;
+    }
+
+    if (data) {
       setSupabaseItemId(data.id);
       return data.id;
     }
@@ -266,7 +433,10 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
   };
 
   const handleToggleWatchlist = async () => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      alert("⚠️ Debes iniciar sesión para añadir títulos a tu lista de pendientes.");
+      return;
+    }
 
     const dbItemId = await ensureMediaItemExistsInDb();
     if (!dbItemId) return;
@@ -281,32 +451,49 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
   };
 
   const handleSaveReview = async () => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      alert("⚠️ Debes iniciar sesión para poder guardar o publicar una reseña.");
+      return;
+    }
 
     const dbItemId = await ensureMediaItemExistsInDb();
-    if (!dbItemId) return;
-
-    if (userReview) {
-      await supabase
-        .from('reviews')
-        .update({ 
-          comment, 
-          rating: parseFloat(rating),
-          created_at: new Date().toISOString()
-        })
-        .eq('id', userReview.id);
-    } else {
-      await supabase
-        .from('reviews')
-        .insert({ 
-          user_id: currentUser.id, 
-          media_id: dbItemId, 
-          comment, 
-          rating: parseFloat(rating),
-          created_at: new Date().toISOString()
-        });
+    if (!dbItemId) {
+      // El error ya lo arroja ensureMediaItemExistsInDb()
+      return;
     }
-    setIsEditing(false); fetchData();
+
+    try {
+      if (userReview) {
+        const { error } = await supabase
+          .from('reviews')
+          .update({ 
+            comment, 
+            rating: parseFloat(rating),
+            created_at: new Date().toISOString()
+          })
+          .eq('id', userReview.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('reviews')
+          .insert({ 
+            user_id: currentUser.id, 
+            media_id: dbItemId, 
+            comment, 
+            rating: parseFloat(rating),
+            created_at: new Date().toISOString()
+          });
+
+        if (error) throw error;
+      }
+
+      setIsEditing(false); 
+      fetchData(); // Recargamos para ver los cambios actualizados
+    } catch (err) {
+      console.error("❌ Error al procesar tu reseña:", err);
+      alert("Hubo un fallo al intentar guardar la reseña en Supabase: " + (err.message || err));
+    }
   };
 
   const formatRuntime = (minutes) => {
@@ -347,7 +534,7 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
     );
   }
 
-  if (!movieData) return <div className="p-8 text-center text-gray-500 font-medium">Sincronizando ficha técnica premium...</div>;
+  if (!movieData) return <div className="p-8 text-center text-gray-500 font-medium">Cargando ficha técnica premium...</div>;
 
   const releaseYear = movieData.release_date 
     ? movieData.release_date.substring(0, 4) 
@@ -547,9 +734,13 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
         ) : (
           <>
             <h3 className="font-bold text-lg mb-4">{userReview && !isEditing ? 'Tu reseña' : 'Escribe tu reseña'}</h3>
-            {userReview && !isEditing ? (
+            
+            {!currentUser ? (
+              <div className="text-center py-6">
+                <p className="text-gray-500 text-sm font-semibold">🔑 Debes iniciar sesión para poder puntuar y escribir una reseña.</p>
+              </div>
+            ) : userReview && !isEditing ? (
               <div>
-                {/* Visualización de la puntuación y fecha de la propia reseña */}
                 <div className="flex items-center gap-3">
                   <p className="text-yellow-500 font-black text-xl">{userReview.rating} ★</p>
                   <span className="text-xs text-gray-400 font-medium">{formatDate(userReview.created_at)}</span>
@@ -608,7 +799,6 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
             return (
               <div key={r.id} className="border-b border-gray-100 pb-4 flex justify-between items-start gap-4">
                 <div className="flex-grow">
-                  {/* Visualización del autor y la fecha al lado */}
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-bold text-gray-900 text-sm">{r.profiles?.username || 'Usuario anónimo'}</p>
                     <span className="text-[11px] text-gray-400 font-medium">• {formatDate(r.created_at)}</span>
