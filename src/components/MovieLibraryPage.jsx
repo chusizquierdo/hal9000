@@ -7,6 +7,7 @@ const ITEMS_PER_PAGE = 30;
 
 export default function MovieLibraryPage() {
   const [userId, setUserId] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true); // Evita parpadeos mientras se comprueba la sesión
   const [library, setLibrary] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -55,20 +56,38 @@ export default function MovieLibraryPage() {
     draggedIndexRef.current = idx;
   };
 
+  // CONTROL DE SESIÓN EN TIEMPO REAL
   useEffect(() => {
+    // 1. Comprobación de estado inicial en la carga
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-      } else {
-        notify('error', 'Debes iniciar sesión.');
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setUserId(user.id);
+        }
+      } catch (err) {
+        console.error("Error comprobando autenticación:", err);
+      } finally {
+        setAuthLoading(false);
       }
     };
     getUser();
 
+    // 2. Suscripción en tiempo real a los cambios de sesión (Navbar, logout, registros, etc.)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setUserId(session.user.id);
+      } else {
+        setUserId(null);
+      }
+      setAuthLoading(false);
+    });
+
     return () => {
       document.body.style.overflow = '';
       if (touchTimeoutRef.current) clearTimeout(touchTimeoutRef.current);
+      // Cancelamos la suscripción al desmontar para evitar fugas de memoria
+      subscription?.unsubscribe();
     };
   }, []);
 
@@ -89,10 +108,10 @@ export default function MovieLibraryPage() {
   };
 
   useEffect(() => {
-    if (showProfilesModal) {
+    if (showProfilesModal && userId) {
       fetchProfiles();
     }
-  }, [showProfilesModal]);
+  }, [showProfilesModal, userId]);
 
   // 👥 Carga la biblioteca correspondiente (del usuario actual o del seleccionado)
   const fetchLibrary = async () => {
@@ -113,7 +132,9 @@ export default function MovieLibraryPage() {
   };
 
   useEffect(() => {
-    fetchLibrary();
+    if (userId) {
+      fetchLibrary();
+    }
   }, [userId, selectedLibraryUser]);
 
   useEffect(() => {
@@ -215,7 +236,6 @@ export default function MovieLibraryPage() {
     setCurrentPage(1);
   };
 
-  // Función auxiliar para saltar a otra biblioteca limpiando estados de búsquedas
   const handleViewOtherLibrary = (profile) => {
     setSelectedLibraryUser(profile);
     setShowProfilesModal(false);
@@ -277,7 +297,6 @@ export default function MovieLibraryPage() {
     if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
   };
 
-  // Lógica Drag & Drop Computadora (Ratón)
   const handleDragStart = (e, index) => {
     if (selectedLibraryUser) { e.preventDefault(); return; } // Deshabilitado en modo lectura
     const targetItem = paginatedLibrary[index];
@@ -310,7 +329,6 @@ export default function MovieLibraryPage() {
     if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
   };
 
-  // Lógica Drag & Drop Móvil (Táctil Premium con Toque Largo)
   const handleTouchStart = (e, index) => {
     if (selectedLibraryUser) return; // Deshabilitado en modo lectura
     if (e.target.closest('button')) return;
@@ -328,7 +346,7 @@ export default function MovieLibraryPage() {
       isTouchDraggingRef.current = true;
       setIsTouchDragging(true);
       document.body.style.overflow = 'hidden'; 
-      if (navigator.vibrate) navigator.vibrate(50); // Feedback háptico al activarse
+      if (navigator.vibrate) navigator.vibrate(50); // Feedback háptico
     }, 400);
   };
 
@@ -385,13 +403,54 @@ export default function MovieLibraryPage() {
     }
   };
 
-  // Filtrado de perfiles en base a la barra de búsqueda del modal
   const filteredProfiles = profiles.filter(prof => 
     (prof.username || '').toLowerCase().includes(profileSearch.toLowerCase())
   );
 
+  // ==========================================
+  // 1. GESTIÓN DE PANTALLAS DE CARGA Y AUTENTICACIÓN
+  // ==========================================
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-950 text-cyan-400">
+        <div className="text-center space-y-3">
+          <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-xs font-bold uppercase tracking-widest text-cyan-500">Iniciando videoteca premium...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Si no está registrado o logueado, se le bloquea totalmente la interfaz (SIN BOTÓN DUPLICADO)
+  if (!userId) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-950 px-4">
+        <div className="max-w-md w-full bg-slate-900/80 border border-red-500/30 rounded-3xl p-8 text-center shadow-[0_0_50px_rgba(239,68,68,0.15)] space-y-6">
+          <div className="w-20 h-20 bg-red-950/40 border border-red-500/30 rounded-2xl flex items-center justify-center text-4xl mx-auto shadow-inner select-none">
+            🔒
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black tracking-tight text-white uppercase">Acceso Restringido</h2>
+            <p className="text-slate-400 text-sm leading-relaxed font-semibold text-cyan-400">
+              Para ver o gestionar la videoteca tienes que estar registrado.
+            </p>
+          </div>
+          <div className="bg-slate-950/80 border border-slate-800 p-4 rounded-2xl text-center">
+            <p className="text-xs text-slate-400 leading-relaxed font-medium">
+              Utiliza el botón de inicio de sesión o registro en el menú superior (navbar) para acceder de forma segura a tus datos y empezar a gestionar tu colección.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // 2. RENDERIZADO NORMAL (USUARIOS AUTENTICADOS)
+  // ==========================================
   return (
     <div className="space-y-6 pb-12 px-4 max-w-7xl mx-auto mt-6 animate-fadeIn text-slate-100 min-h-screen">
+      
       {/* INYECCIÓN DE ANIMACIÓN CSS NATIVA PARA EL DESTELLO BLANCO EN MÓVIL Y CUSTOM SCROLLBAR */}
       <style>{`
         @keyframes customWhiteFlash {
@@ -489,7 +548,6 @@ export default function MovieLibraryPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            {/* Botón para abrir el listado de otros usuarios */}
             <button 
               onClick={() => setShowProfilesModal(true)} 
               className="bg-slate-900 hover:bg-slate-800 text-cyan-400 border border-cyan-900/60 font-bold text-xs py-3 px-5 rounded-xl transition-all uppercase tracking-wider flex items-center justify-center gap-2 shadow-md w-full sm:w-auto"
@@ -497,7 +555,6 @@ export default function MovieLibraryPage() {
               👥 Otras colecciones
             </button>
 
-            {/* Solo permitimos añadir películas si estamos en nuestra propia colección */}
             {!selectedLibraryUser && (
               <button 
                 onClick={() => setShowExternalSearch(true)} 
@@ -534,7 +591,7 @@ export default function MovieLibraryPage() {
         </div>
       )}
 
-      {/* BUSCADOR DE TMDB (Solo visible si estás en tu propia colección) */}
+      {/* BUSCADOR DE TMDB */}
       {showExternalSearch && !selectedLibraryUser && (
         <div className="bg-slate-950 border border-cyan-500/30 rounded-2xl p-4 sm:p-6 shadow-2xl relative animate-fadeIn space-y-4">
           <button 
@@ -650,14 +707,11 @@ export default function MovieLibraryPage() {
 
             const isCurrentlyDragged = draggedIndexState === libraryRef.current.findIndex(m => m.id === movie.id);
 
-            // Bifurcamos dinámicamente las clases CSS dependiendo de si es arrastre táctil (móvil) o nativo (PC)
             let dragStyles = "border-blue-900/50 hover:scale-[1.02]";
             if (isCurrentlyDragged) {
               if (isTouchDragging) {
-                // Estilo PREMIUM para MÓVIL (Brillo blanco, agrandado y flotando)
                 dragStyles = "scale-105 border-white ring-2 ring-white shadow-[0_0_20px_rgba(255,255,255,0.7)] z-50 pointer-events-none";
               } else {
-                // Estilo TRADICIONAL para PC (Opaco y encogido, perfecto para ratón)
                 dragStyles = "opacity-40 border-cyan-500 scale-95 shadow-[0_0_15px_rgba(34,211,238,0.3)]";
               }
             }
@@ -682,7 +736,6 @@ export default function MovieLibraryPage() {
                 }}
                 className={`relative group bg-slate-950 rounded-xl flex flex-col overflow-hidden border transition-all duration-300 hover:border-cyan-500/50 touch-none select-none [-webkit-touch-callout:none] ${dragStyles}`}
               >
-                {/* Capa de destello blanco instantáneo - SOLO SE ACTIVA EN ARRASTRE MÓVIL */}
                 {isCurrentlyDragged && isTouchDragging && (
                   <div className="absolute inset-0 bg-white pointer-events-none animate-flash-glow z-50 mix-blend-screen" />
                 )}
@@ -699,7 +752,6 @@ export default function MovieLibraryPage() {
                     draggable="false"
                   />
                   
-                  {/* Botón de borrado (Solo si estás en tu propia biblioteca) */}
                   {!selectedLibraryUser && (
                     <button 
                       onClick={(e) => deleteMovie(movie.id, e)}
@@ -758,7 +810,6 @@ export default function MovieLibraryPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
           <div className="bg-slate-950 border border-blue-900/50 rounded-2xl w-full max-w-md overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.8)] flex flex-col max-h-[80vh]">
             
-            {/* Cabecera del Modal */}
             <div className="h-14 bg-gradient-to-r from-blue-600 to-cyan-500 flex items-center justify-between px-4 text-xs font-black tracking-widest text-white uppercase">
               <span className="flex items-center gap-2">👥 Colecciones de Usuarios</span>
               <button 
@@ -769,11 +820,9 @@ export default function MovieLibraryPage() {
               </button>
             </div>
 
-            {/* Contenido del Modal */}
             <div className="p-4 flex-1 flex flex-col min-h-0 space-y-4">
               <p className="text-[11px] text-slate-400">Selecciona un usuario de la comunidad para echar un vistazo a su catálogo físico.</p>
               
-              {/* Buscador de perfiles */}
               <input
                 type="text"
                 placeholder="Buscar usuario..."
