@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import ActorDetailsPage from './ActorDetailsPage';
 
-export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
+// ✅ Añadimos los nuevos props newReviews y markReviewAsSeen
+export default function MovieDetailsPage({ mediaId, onBack, isAdmin, newReviews = [], markReviewAsSeen = () => {} }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [movieData, setMovieData] = useState(null);
   const [reviews, setReviews] = useState([]);
@@ -361,6 +362,20 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
     ]);
   };
 
+  // ✅ NUEVO: Lógica para marcar reseñas como vistas al entrar orgánicamente a la película
+  useEffect(() => {
+    // Si tenemos reseñas mostrándose, y hay reseñas sin leer pendientes en App.jsx
+    if (reviews.length > 0 && newReviews?.length > 0) {
+      // Cruzamos los IDs de las reseñas cargadas con las notificaciones no leídas
+      const unreadInView = reviews.filter(r => newReviews.some(nr => nr.id === r.id));
+      
+      // Si hay coincidencia, avisamos a App.jsx para que las marque como leídas
+      unreadInView.forEach(unread => {
+        markReviewAsSeen(unread.id);
+      });
+    }
+  }, [reviews, newReviews, markReviewAsSeen]);
+
   const handleToggleLike = async (reviewId, reviewAuthorId, currentLikes) => {
     if (!currentUser) return alert("Debes iniciar sesión para dar me gusta");
     if (currentUser.id === reviewAuthorId) return;
@@ -663,7 +678,7 @@ export default function MovieDetailsPage({ mediaId, onBack, isAdmin }) {
                 <p className="text-gray-400 text-xs italic font-medium">Información sobre el elenco no disponible.</p>
               )}
             </div>
-
+            
             <div className="col-span-2 sm:col-span-3 border-t border-gray-200/60 pt-3 mt-1">
               <p className="text-gray-400 font-bold uppercase text-[10px] tracking-wider mb-3">Disponible en</p>
               {watchProviders.length > 0 ? (

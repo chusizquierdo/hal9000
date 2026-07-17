@@ -10,7 +10,7 @@ import ProfileSettings from './components/ProfileSettings';
 import Auth from './components/Auth';
 import UpdatePassword from '././components/UpdatePassword';
 
-// NUEVOS COMPONENTES IMPORTADOS
+// COMPONENTES IMPORTADOS
 import AdminUserPanel from './components/AdminUserPanel';
 import UserLeaderboard from './components/UserLeaderboard';
 import NavbarTabs from './components/NavbarTabs';
@@ -22,13 +22,12 @@ import Wordle from './components/Wordle';
 import SopaLetras from './components/SopaLetras';
 import MatchGame from './components/MatchGame';
 import PollsView from './components/PollsView';
-import MovieLibraryPage from './components/MovieLibraryPage'; // ✅ COMPONENTE DE VIDEOTECA INSTALADO
+import MovieLibraryPage from './components/MovieLibraryPage';
 
 // INICIALIZACIÓN DE SENTRY EN EL ÁMBITO GLOBAL
 Sentry.init({
   dsn: "https://c4511de854ac9238e7c5aa5b8336b7b1@o4511678809047040.ingest.de.sentry.io/4511678820778064",
   dataCollection: {
-    // Para desactivar el envío de datos de usuario y cuerpos HTTP, descomenta las líneas de abajo:
     // userInfo: false,
     // httpBodies: []
   },
@@ -43,11 +42,97 @@ Sentry.init({
   enableLogs: true
 });
 
+// COMPONENTE DE NOTIFICACIONES OPTIMIZADO
+function NotificationsPage({ newReviews, onClearNotifications, onViewReviews, onViewMovie, onBack }) {
+  return (
+    <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-6 animate-fadeIn">
+      <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+        <div className="flex items-center gap-3">
+          <button onClick={onBack} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
+          </button>
+          <h2 className="text-xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+            🔔 Notificaciones
+          </h2>
+        </div>
+        {newReviews.length > 0 && (
+          <button 
+            onClick={onClearNotifications}
+            className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold px-3 py-1.5 rounded-xl transition-all"
+          >
+            Descartar todas ✕
+          </button>
+        )}
+      </div>
+
+      {newReviews.length > 0 ? (
+        <div className="space-y-4">
+          <div className="bg-blue-50/60 border border-blue-100 p-4 rounded-xl text-sm text-blue-800 font-medium leading-relaxed">
+            Se han añadido {newReviews.length} {newReviews.length === 1 ? 'nueva reseña' : 'nuevas reseñas'} desde tu última visita. Haz clic en cualquiera para explorarla (se quitará de la lista al verla).
+          </div>
+          
+          <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden bg-white shadow-inner">
+            {newReviews.map((review) => {
+              const movieTitle = review.media_items?.title || "Película en la comunidad";
+
+              return (
+                <div 
+                  key={review.id} 
+                  onClick={() => onViewMovie(review.media_id, review.id)}
+                  className="p-4 hover:bg-blue-50/30 cursor-pointer transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+                >
+                  <div className="space-y-1 overflow-hidden max-w-xl">
+                    <div className="flex items-center gap-2 text-sm font-bold text-gray-900">
+                      <span className="truncate">🎬 Nueva crítica de: <span className="text-blue-600 font-black">{movieTitle}</span></span>
+                      {review.rating && (
+                        <span className="bg-amber-50 text-amber-600 text-xs px-2 py-0.5 rounded-md font-black flex items-center gap-0.5 shrink-0">
+                          ⭐ {review.rating}
+                        </span>
+                      )}
+                      {review.is_spoiler && (
+                        <span className="bg-red-50 text-red-600 text-[9px] uppercase font-extrabold px-1.5 py-0.5 rounded-md tracking-wider shrink-0">
+                          Spoiler
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 italic truncate max-w-md">
+                      {review.is_spoiler 
+                        ? "Esta reseña contiene spoilers. Haz clic para abrir la película bajo tu responsabilidad." 
+                        : (review.comment || "Sin comentario escrito, solo puntuación.")
+                      }
+                    </p>
+                  </div>
+                  <button className="text-xs text-blue-600 font-bold group-hover:translate-x-1 transition-transform shrink-0 self-start sm:self-center flex items-center gap-1">
+                    Ver película <span>→</span>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          
+          <div className="pt-2">
+            <button 
+              onClick={onViewReviews}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-3 px-4 rounded-xl transition-all shadow-md text-center block"
+            >
+              Marcar todo como leído y volver al inicio
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="text-center py-12 text-gray-400 font-medium space-y-2">
+          <div className="text-4xl">🎉</div>
+          <p className="text-sm">¡Estás al día! No hay reseñas nuevas de otros usuarios.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   
-  // 🔄 ESTADOS MODIFICADOS PARA LEER DE LOCALSTORAGE AL RECARGAR
   const [currentView, setCurrentView] = useState(() => {
     return localStorage.getItem('hal9000_current_view') || 'dashboard';
   });
@@ -66,12 +151,13 @@ export default function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
-  const [profile, setProfile] = useState({ username: 'Usuario', avatar_url: '' });
+  
+  const [profile, setProfile] = useState({ username: 'Usuario', avatar_url: '', dismissed_reviews: [] });
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [suggestionCount, setSuggestionCount] = useState(0);
+  const [newReviews, setNewReviews] = useState([]);
 
-  // 💾 EFECTOS AUTOMÁTICOS PARA GUARDAR EN LOCALSTORAGE CUANDO CAMBIAN LOS ESTADOS
   useEffect(() => {
     localStorage.setItem('hal9000_current_view', currentView);
   }, [currentView]);
@@ -130,6 +216,7 @@ export default function App() {
         setSession(null);
         setIsAdmin(false);
         setSuggestionCount(0);
+        setNewReviews([]);
       }
       if (event === 'PASSWORD_RECOVERY') {
         setCurrentView('update-password');
@@ -154,23 +241,83 @@ export default function App() {
 
     const { data } = await supabase
       .from('profiles')
-      .select('username, avatar_url, role')
+      .select('username, avatar_url, role, last_viewed_reviews_at, dismissed_reviews')
       .eq('id', session.user.id)
       .maybeSingle();
 
     if (data) {
+      const dismissedArray = data.dismissed_reviews || [];
+      
       setProfile({
         username: data.username || session.user.email.split('@')[0],
-        avatar_url: data.avatar_url || ''
+        avatar_url: data.avatar_url || '',
+        dismissed_reviews: dismissedArray
       });
       setIsAdmin(data.role === 'admin');
+      
+      if (data.last_viewed_reviews_at) {
+        fetchNewReviews(data.last_viewed_reviews_at, dismissedArray);
+      }
     } else {
       setProfile({
         username: session.user.email.split('@')[0],
-        avatar_url: ''
+        avatar_url: '',
+        dismissed_reviews: []
       });
       setIsAdmin(false);
     }
+  };
+
+  const fetchNewReviews = async (lastViewedAt, dismissedReviews = []) => {
+    if (!session?.user || session.isGuest) return;
+    try {
+      const { data, error } = await supabase
+        .from('reviews') 
+        .select(`
+          *,
+          media_items ( title )
+        `)
+        .gt('created_at', lastViewedAt);
+
+      if (!error && data) {
+        const filteredReviews = data.filter((review) => {
+          const isMine = review.user_id === session.user.id;
+          const isDismissed = dismissedReviews.some(id => String(id) === String(review.id));
+          return !isMine && !isDismissed;
+        });
+
+        setNewReviews(filteredReviews);
+      }
+    } catch (err) {
+      console.error("Error consultando nuevas reseñas:", err);
+    }
+  };
+
+  // ✅ NUEVO: Función especializada solo en marcar como leída
+  const markReviewAsSeen = async (reviewId) => {
+    setNewReviews(prev => prev.filter(r => r.id !== reviewId));
+
+    if (session?.user && !session.isGuest) {
+      const currentDismissed = profile.dismissed_reviews || [];
+      const reviewIdString = String(reviewId);
+      
+      if (!currentDismissed.includes(reviewIdString)) {
+        const newDismissed = [...currentDismissed, reviewIdString];
+        setProfile(prev => ({ ...prev, dismissed_reviews: newDismissed }));
+        
+        // Escribimos a la base de datos de forma asíncrona
+        await supabase
+          .from('profiles')
+          .update({ dismissed_reviews: newDismissed })
+          .eq('id', session.user.id);
+      }
+    }
+  };
+
+  // Función que usa Notificaciones para ir a la vista además de marcar
+  const handleViewReviewFromNotification = (mediaId, reviewId) => {
+    markReviewAsSeen(reviewId);
+    navigateTo('details', { mediaId });
   };
 
   const fetchSuggestionCount = async () => {
@@ -187,12 +334,43 @@ export default function App() {
     }
   };
 
+  const markReviewsAsRead = async () => {
+    if (!session?.user || session.isGuest) return;
+    const nowTimestamp = new Date().toISOString();
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          last_viewed_reviews_at: nowTimestamp,
+          dismissed_reviews: [] 
+        })
+        .eq('id', session.user.id);
+
+      if (!error) {
+        setNewReviews([]);
+        setProfile(prev => ({ ...prev, dismissed_reviews: [] }));
+      }
+    } catch (err) {
+      console.error("Error actualizando marca de lectura:", err);
+    }
+  };
+
+  const handleClearNotifications = async () => {
+    await markReviewsAsRead();
+    navigateToDashboard();
+  };
+
+  const handleViewReviews = async () => {
+    await markReviewsAsRead();
+    navigateToDashboard();
+  };
+
   const handleGuestLogin = () => {
     setSession({
       isGuest: true,
       user: { id: 'guest-user', email: 'invitado@hal9000.com' }
     });
-    setProfile({ username: 'Invitado', avatar_url: '' });
+    setProfile({ username: 'Invitado', avatar_url: '', dismissed_reviews: [] });
     setIsAdmin(false);
     setCurrentView('dashboard');
     setNavigationStack([]);
@@ -203,6 +381,7 @@ export default function App() {
     setIsDropdownOpen(false);
     setIsAdmin(false);
     setSuggestionCount(0);
+    setNewReviews([]);
     if (session?.isGuest) {
       setSession(null);
     } else {
@@ -220,6 +399,14 @@ export default function App() {
     setCurrentView('dashboard');
     setNavigationStack([]);
     setRefreshKey(prev => prev + 1);
+  };
+
+  const navigateToNotifications = () => {
+    if (session?.isGuest || !session) return;
+    setSelectedMediaId(null);
+    setCurrentView('notifications');
+    setNavigationStack([]);
+    setIsDropdownOpen(false);
   };
 
   const navigateToMyReviews = () => {
@@ -277,7 +464,6 @@ export default function App() {
     } else if (tabName === 'polls') {
       setCurrentView('polls');
     } else if (tabName === 'blu_ray_library') {
-      // ✅ SE HA ELIMINADO EL CANDADO DE ENRUTAMIENTO: Ahora todos los usuarios pueden acceder libremente
       setCurrentView('blu_ray_library');
     } else {
       setCurrentView('dashboard');
@@ -314,7 +500,7 @@ export default function App() {
                   onClick={() => { navigateTo('create'); setIsDropdownOpen(false); }}
                   className="inline-flex items-center gap-1 sm:gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-2.5 sm:px-5 py-2 rounded-xl font-bold hover:from-blue-700 hover:to-indigo-700 active:scale-95 transition-all shadow-md hover:shadow-lg text-[11px] sm:text-sm tracking-tight border border-blue-500/10 shrink-0"
                 >
-                  <svg xmlns="http://www.w3.org/2000/xl" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5 sm:w-4 sm:h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5 sm:w-4 sm:h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                   <span><span className="hidden min-[375px]:inline">Nueva </span>Reseña</span>
                 </button>
               )}
@@ -323,7 +509,7 @@ export default function App() {
                 <div className="relative shrink-0">
                   <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="relative flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full focus:outline-none transition-all duration-200 border-2 border-transparent hover:border-blue-500 hover:shadow-md">
                     {profile.avatar_url ? <img src={profile.avatar_url} alt="User Avatar" className="w-full h-full rounded-full object-cover" /> : <div className="w-full h-full rounded-full bg-blue-600 text-white flex items-center justify-center text-xs sm:text-sm font-black uppercase tracking-wider shadow-inner">{profile.username[0]}</div>}
-                    {isAdmin && suggestionCount > 0 && (
+                    {((isAdmin && suggestionCount > 0) || newReviews.length > 0) && (
                       <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
                     )}
                   </button>
@@ -340,7 +526,16 @@ export default function App() {
                         </div>
                         {!session.isGuest ? (
                           <>
-                            <button onClick={navigateToSettings} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-bold flex items-center gap-2 transition-colors mt-1">⚙️ Configurar Perfil</button>
+                            <button onClick={navigateToNotifications} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-bold flex items-center justify-between transition-colors mt-1">
+                              <span className="flex items-center gap-2">🔔 Notificaciones</span>
+                              {newReviews.length > 0 && (
+                                <span className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm animate-pulse">
+                                  {newReviews.length}
+                                </span>
+                              )}
+                            </button>
+
+                            <button onClick={navigateToSettings} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors">⚙️ Configurar Perfil</button>
                             <button onClick={navigateToMyReviews} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors">📂 Mis reseñas (Biblioteca)</button>
                             <button onClick={navigateToWatchlist} className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 font-medium flex items-center gap-2 transition-colors">⏳ Películas pendientes</button>
 
@@ -382,6 +577,15 @@ export default function App() {
         {currentView === 'dashboard' && (
           <Dashboard key={refreshKey} isAdmin={isAdmin} activeTab={activeTab} onViewMovie={(id) => navigateTo('details', { mediaId: id })} />
         )}
+        {currentView === 'notifications' && session && !session.isGuest && (
+          <NotificationsPage 
+            newReviews={newReviews} 
+            onClearNotifications={handleClearNotifications} 
+            onViewReviews={handleViewReviews} 
+            onViewMovie={handleViewReviewFromNotification}
+            onBack={goBack} 
+          />
+        )}
         {currentView === 'my-reviews' && session && !session.isGuest && (
           <Dashboard key="my-library" isAdmin={isAdmin} activeTab={activeTab} userIdFilter={session.user.id} onViewMovie={(id) => navigateTo('details', { mediaId: id })} onBack={goBack} />
         )}
@@ -389,7 +593,14 @@ export default function App() {
           <Watchlist onViewMovie={(id) => navigateTo('details', { mediaId: id })} userId={session.user.id} onBack={goBack} />
         )}
         {currentView === 'details' && (
-          <MovieDetailsPage mediaId={selectedMediaId} isAdmin={isAdmin} onBack={goBack} />
+          <MovieDetailsPage 
+            mediaId={selectedMediaId} 
+            isAdmin={isAdmin} 
+            onBack={goBack} 
+            // ✅ Pasamos los props necesarios para limpiar las notificaciones desde dentro
+            newReviews={newReviews}
+            markReviewAsSeen={markReviewAsSeen}
+          />
         )}
         {currentView === 'create' && session && !session.isGuest && (
           <CreateReviewPage onReviewCreated={navigateToDashboard} />
@@ -427,7 +638,6 @@ export default function App() {
         {currentView === 'polls' && (
           <PollsView isAdmin={isAdmin} />
         )}
-        {/* ✅ RENDERIZADO CONDICIONAL DE LA VIDEOTECA FÍSICA DISPONIBLE PARA TODOS LOS USUARIOS */}
         {currentView === 'blu_ray_library' && (
           <MovieLibraryPage />
         )}
